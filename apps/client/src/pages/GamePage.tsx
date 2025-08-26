@@ -296,6 +296,12 @@ export function GamePage() {
     navigate('/');
   };
 
+  const handleEndGame = () => {
+    if (currentPlayer?.isHost) {
+      executeAction({ type: 'endGame', playerId: currentPlayer.id });
+    }
+  };
+
   const handleSendChat = () => {
     if (chatMessage.trim()) {
       sendChatMessage(chatMessage.trim());
@@ -735,7 +741,7 @@ export function GamePage() {
        <div className="bg-white rounded-lg shadow-md p-4 mb-4">
          <div className="flex items-center justify-between">
            <div>
-                           <h1 className="text-2xl font-bold text-gray-900">Room: {roomId}</h1>
+                           <h1 className="text-2xl font-bold text-gray-900">Room: {gameState?.settings?.roomKey || roomId}</h1>
               
               {/* Sharable Link */}
               <div className="bg-green-50 border border-green-200 rounded-lg p-2 mb-2">
@@ -743,12 +749,12 @@ export function GamePage() {
                   <div className="flex-1">
                     <p className="text-sm text-green-700 font-medium">Share this link to invite players:</p>
                     <p className="text-xs text-green-600 font-mono break-all">
-                      {window.location.origin}/join/{roomId}
+                      {window.location.origin}/join/{gameState?.settings?.roomKey || roomId}
                     </p>
                   </div>
                   <button
                     onClick={() => {
-                      navigator.clipboard.writeText(`${window.location.origin}/join/${roomId}`);
+                      navigator.clipboard.writeText(`${window.location.origin}/join/${gameState?.settings?.roomKey || roomId}`);
                       // You could add a toast notification here
                     }}
                     className="ml-2 px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition-colors"
@@ -807,6 +813,16 @@ export function GamePage() {
               <p className="text-sm text-gray-600">Connected Players</p>
               <p className="font-semibold">{gameState.players.filter(p => p.isConnected).length}/{gameState.players.length}</p>
             </div>
+            {currentPlayer?.isHost && (
+              <button
+                onClick={handleEndGame}
+                className="flex items-center justify-center space-x-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+                title="End the game immediately (Host only)"
+              >
+                <Trophy size={16} />
+                <span>End Game</span>
+              </button>
+            )}
             <button
               onClick={handleLeaveRoom}
               className="flex items-center justify-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"

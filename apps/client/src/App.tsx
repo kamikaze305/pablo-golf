@@ -13,6 +13,7 @@ function App() {
         <Route path="/game/:roomId" element={<GamePage />} />
         <Route path="/join/:roomKey" element={<JoinRoomPage />} />
         <Route path="/qa" element={<QAPage />} />
+        <Route path="*" element={<HomePage />} />
       </Routes>
     </Layout>
   );

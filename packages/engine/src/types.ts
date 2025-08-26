@@ -88,6 +88,7 @@ export type GameAction =
   | { type: 'playerReady'; playerId: string }
   | { type: 'startRound' }
   | { type: 'endRound' }
+  | { type: 'endGame'; playerId: string }
   | { type: 'resetGame' };
 
 export interface GameResult {

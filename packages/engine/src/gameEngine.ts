@@ -196,6 +196,8 @@ export class PabloGameEngine {
         return this.startRound();
       case 'endRound':
         return this.endRound();
+      case 'endGame':
+        return this.endGame(action);
       case 'resetGame':
         return this.resetGame();
       default:
@@ -771,6 +773,27 @@ export class PabloGameEngine {
       roundDeltas,
       winner
     };
+  }
+
+  private endGame(action: Extract<GameAction, { type: 'endGame' }>): GameState {
+    // Check if the player is the host
+    const player = this.state.players.find(p => p.id === action.playerId);
+    if (!player || !player.isHost) {
+      throw new Error('Only the host can end the game');
+    }
+
+    // End the current round and calculate final scores
+    if (this.state.gamePhase === 'playing') {
+      this.endRound();
+    }
+
+    // Set game phase to finished
+    this.state = {
+      ...this.state,
+      gamePhase: 'finished'
+    };
+
+    return this.getState();
   }
 }
 
