@@ -27,12 +27,13 @@ export function GamePage() {
     isLoading
   } = useGameStore();
 
-  const [chatMessage, setChatMessage] = useState('');
+    const [chatMessage, setChatMessage] = useState('');
   const [selectedCardIndex, setSelectedCardIndex] = useState<number | null>(null);
   const [showChat, setShowChat] = useState(false);
-       const [pabloTimer, setPabloTimer] = useState<number | null>(null);
-    const [pabloCountdown, setPabloCountdown] = useState<number>(15);
-    const [roundEndTimer, setRoundEndTimer] = useState<number>(30);
+  const [pabloTimer, setPabloTimer] = useState<number | null>(null);
+  const [pabloCountdown, setPabloCountdown] = useState<number>(15);
+  const [roundEndTimer, setRoundEndTimer] = useState<number>(30);
+  const [lastReplacedCard, setLastReplacedCard] = useState<{playerId: string, cardIndex: number} | null>(null);
 
   // Calculate game state variables
   const isMyTurn = gameState?.currentPlayerIndex !== undefined && 
@@ -203,12 +204,20 @@ export function GamePage() {
     
     if (selectedCardIndex !== null && gameState?.lastAction?.type === 'draw' && currentPlayer?.id) {
       console.log('GamePage: Executing replace action');
+      // Track the replaced card for highlighting
+      setLastReplacedCard({ playerId: currentPlayer.id, cardIndex: selectedCardIndex });
+      
       executeAction({ 
         type: 'replace', 
         playerId: currentPlayer.id,
         cardIndex: selectedCardIndex
       });
       setSelectedCardIndex(null);
+      
+      // Clear the replacement highlight after 3 seconds
+      setTimeout(() => {
+        setLastReplacedCard(null);
+      }, 3000);
     } else {
       console.log('GamePage: Replace conditions not met');
     }
@@ -896,20 +905,47 @@ export function GamePage() {
                             // Remove peekable functionality - only allow during peeking phase
                             const isPeekable = false;
                             
-                            return (
-                              <PlayingCard
-                                key={cardIndex}
-                                card={card}
-                                isHidden={isHidden}
-                                isSelected={selectedCardIndex === cardIndex && canReplace}
-                                isPeekable={isPeekable}
-                                onClick={() => {
-                                  if (isMyCard && canReplace) {
-                                    setSelectedCardIndex(cardIndex);
-                                  }
-                                }}
-                              />
-                            );
+                                                         // Check if this card is selected for replacement
+                             const isSelectedForReplacement = selectedCardIndex === cardIndex && canReplace;
+                             // Check if this card was just replaced (show highlight for a few seconds)
+                             const wasJustReplaced = lastReplacedCard && 
+                               lastReplacedCard.playerId === player.id && 
+                               lastReplacedCard.cardIndex === cardIndex;
+                             
+                             return (
+                               <div key={cardIndex} className="relative">
+                                 <PlayingCard
+                                   card={card}
+                                   isHidden={isHidden}
+                                   isSelected={isSelectedForReplacement}
+                                   isPeekable={isPeekable}
+                                   onClick={() => {
+                                     if (isMyCard && canReplace) {
+                                       setSelectedCardIndex(cardIndex);
+                                     }
+                                   }}
+                                   className={`
+                                     ${isSelectedForReplacement ? 'ring-4 ring-purple-500 ring-opacity-75 scale-110' : ''}
+                                     ${wasJustReplaced ? 'ring-4 ring-green-500 ring-opacity-75 scale-110 animate-pulse' : ''}
+                                     transition-all duration-200
+                                   `}
+                                 />
+                                 
+                                 {/* Selection indicator */}
+                                 {isSelectedForReplacement && (
+                                   <div className="absolute -top-2 -left-2 bg-purple-500 text-white text-xs px-2 py-1 rounded-full font-bold z-10">
+                                     SELECTED
+                                   </div>
+                                 )}
+                                 
+                                 {/* Replacement indicator */}
+                                 {wasJustReplaced && (
+                                   <div className="absolute -top-2 -right-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full font-bold z-10">
+                                     REPLACED
+                                   </div>
+                                 )}
+                               </div>
+                             );
                           })}
                         </div>
                        
@@ -981,21 +1017,32 @@ export function GamePage() {
                  </>
                )}
               
-                                             {/* Drawn Card Display */}
-                {gameState.lastAction?.type === 'draw' && currentPlayer?.id === gameState.lastAction.playerId && (
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-2 mb-2">
-                    <h4 className="font-semibold text-yellow-800 mb-1 text-sm">Drawn Card</h4>
-                    <div className="flex items-center justify-center">
-                      <PlayingCard
-                        card={gameState.lastAction.card || null}
-                        className="border-2 border-yellow-300"
-                      />
-                    </div>
-                    <p className="text-xs text-yellow-700 mt-1 text-center">
-                      Select a card from your hand to replace
-                    </p>
-                  </div>
-                )}
+                                                              {/* Drawn Card Display */}
+                 {gameState.lastAction?.type === 'draw' && currentPlayer?.id === gameState.lastAction.playerId && (
+                   <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-2 mb-2">
+                     <h4 className="font-semibold text-yellow-800 mb-1 text-sm">🎯 Drawn Card - Select Replacement</h4>
+                     <div className="flex items-center justify-center">
+                       <PlayingCard
+                         card={gameState.lastAction.card || null}
+                         className="border-2 border-yellow-300 ring-4 ring-yellow-400 ring-opacity-75 scale-110"
+                       />
+                     </div>
+                     <p className="text-xs text-yellow-700 mt-1 text-center">
+                       💡 Click on a card in your hand to select it for replacement
+                     </p>
+                     
+                     {/* Instructions for replacement */}
+                     <div className="mt-2 p-2 bg-yellow-100 rounded border border-yellow-300">
+                       <p className="text-xs text-yellow-800 font-medium">Replacement Instructions:</p>
+                       <ul className="text-xs text-yellow-700 mt-1 space-y-1">
+                         <li>• Click on any card in your hand to select it</li>
+                         <li>• Selected card will be highlighted with purple ring</li>
+                         <li>• Click "Replace Card" button to complete the action</li>
+                         <li>• Or click "Discard Drawn Card" to skip replacement</li>
+                       </ul>
+                     </div>
+                   </div>
+                 )}
 
                              {canReplace && (
                  <button
