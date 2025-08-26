@@ -893,7 +893,8 @@ export function GamePage() {
                           {player.cards.map((card, cardIndex) => {
                             const isMyCard = currentPlayer?.id === player.id;
                             const isHidden = card && card.suit === 'hidden';
-                            const isPeekable = isMyCard && cardIndex >= 2 && gameState.gamePhase === 'playing';
+                            // Remove peekable functionality - only allow during peeking phase
+                            const isPeekable = false;
                             
                             return (
                               <PlayingCard

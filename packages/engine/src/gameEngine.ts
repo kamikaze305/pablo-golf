@@ -116,7 +116,7 @@ export class PabloGameEngine {
       return state;
     }
 
-    // Hide other players' cards during normal gameplay, but show cards for disconnected players
+    // Hide all cards during normal gameplay - players must memorize their cards
     state.players = state.players.map(p => {
       if (p.id === playerId) {
         // For current player, hide all cards (they must memorize)
@@ -124,13 +124,16 @@ export class PabloGameEngine {
           ...p,
           cards: p.cards.map(card => card ? { ...card, suit: 'hidden', rank: 'hidden' as any } : null)
         };
+      } else {
+        // For other players, always hide cards unless they're disconnected
+        if (!p.isConnected) {
+          return p; // Show cards for disconnected players
+        }
+        return {
+          ...p,
+          cards: p.cards.map(card => card ? { ...card, suit: 'hidden', rank: 'hidden' as any } : null)
+        };
       }
-      // Show cards for disconnected players
-      if (!p.isConnected) return p;
-      return {
-        ...p,
-        cards: p.cards.map(card => card ? { ...card, suit: 'hidden', rank: 'hidden' as any } : null)
-      };
     });
 
     return state;
