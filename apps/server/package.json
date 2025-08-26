@@ -6,7 +6,7 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc",
+    "build": "cd ../../packages/engine && npm install && npm run build && cd ../../apps/server && tsc",
     "serve": "node dist/index.js",
     "test": "vitest",
     "test:watch": "vitest --watch",
