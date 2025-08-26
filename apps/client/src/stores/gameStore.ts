@@ -39,10 +39,8 @@ interface GameStore {
   hideJoinRoom: () => void;
 }
 
-// Use production config in production, fallback to localhost for development
-const SOCKET_URL = import.meta.env.PROD 
-  ? 'https://your-server-name-production.up.railway.app' // Replace with your actual Railway server URL
-  : (import.meta.env.VITE_SOCKET_URL || 'http://localhost:4001');
+// Use environment variable or fallback to localhost for development
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:4001';
 
 // Session persistence keys
 const SESSION_KEYS = {
