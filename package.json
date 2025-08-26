@@ -1,0 +1,32 @@
+{
+  "name": "pablo-golf-game",
+  "version": "1.0.0",
+  "description": "Production-ready Pablo (4-card Golf variant) with multiplayer and offline modes",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "cd apps/server && npm run dev",
+    "dev:client": "cd apps/client && npm run dev",
+    "build": "npm run build:server && npm run build:client",
+    "build:server": "cd apps/server && npm run build",
+    "build:client": "cd apps/client && npm run build",
+    "serve": "cd apps/server && npm run serve",
+    "test": "npm run test:engine && npm run test:server && npm run test:client",
+    "test:engine": "cd packages/engine && npm test",
+    "test:server": "cd apps/server && npm test",
+    "test:client": "cd apps/client && npm test",
+    "lint": "npm run lint:server && npm run lint:client",
+    "lint:server": "cd apps/server && npm run lint",
+    "lint:client": "cd apps/client && npm run lint",
+    "clean": "npm run clean:server && npm run clean:client",
+    "clean:server": "cd apps/server && npm run clean",
+    "clean:client": "cd apps/client && npm run clean"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}

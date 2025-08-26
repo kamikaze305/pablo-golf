@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: pablo-golf-server
+    env: node
+    plan: free
+    buildCommand: cd apps/server && npm install && npm run build
+    startCommand: cd apps/server && npm run serve
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: ORIGIN
+        value: https://your-client-domain.onrender.com
+      - key: MAX_ROOMS
+        value: 50
+      - key: MAX_PLAYERS_PER_ROOM
+        value: 5
+      - key: MAX_CONNECTIONS
+        value: 300
