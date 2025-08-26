@@ -61,7 +61,7 @@ export function CreateRoomModal() {
     key: K, 
     value: RoomSettings[K]
   ) => {
-    setSettings(prev => ({ ...prev, [key]: value }));
+    setSettings((prev: RoomSettings) => ({ ...prev, [key]: value }));
   };
 
   return (

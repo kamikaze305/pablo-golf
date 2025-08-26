@@ -124,14 +124,14 @@ export const useGameStore = create<GameStore>()(
       socket.on('state:patch', (gameState: GameState) => {
         console.log('GameStore: Received state:patch event');
         console.log('GameStore: Current playerId in store:', get().playerId);
-        console.log('GameStore: Players in received state:', gameState.players.map(p => ({ id: p.id, name: p.name, isHost: p.isHost })));
+        console.log('GameStore: Players in received state:', gameState.players.map((p: Player) => ({ id: p.id, name: p.name, isHost: p.isHost })));
         
         set({ gameState });
         
         // Update current player if we have a playerId
         const { playerId } = get();
         if (playerId) {
-          const currentPlayer = gameState.players.find(p => p.id === playerId);
+          const currentPlayer = gameState.players.find((p: Player) => p.id === playerId);
           console.log('GameStore: Found currentPlayer:', currentPlayer);
           set({ currentPlayer: currentPlayer || null });
         } else {
