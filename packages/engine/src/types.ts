@@ -75,6 +75,12 @@ export interface GameState {
   roundHistory: RoundHistory[];
   peekedCards?: { [playerId: string]: number[] };
   readyPlayers?: string[]; // Track which players have clicked ready
+  activeTrick?: {
+    type: '7' | '8';
+    playerId: string;
+    card: Card;
+    activated: boolean;
+  };
 }
 
 export type GameAction = 
@@ -89,7 +95,9 @@ export type GameAction =
   | { type: 'startRound' }
   | { type: 'endRound' }
   | { type: 'endGame'; playerId: string }
-  | { type: 'resetGame' };
+  | { type: 'resetGame' }
+  | { type: 'activateTrick'; playerId: string; trickType: '7' | '8'; card: Card }
+  | { type: 'executeTrick'; playerId: string; trickType: '7' | '8'; payload: any };
 
 export interface GameResult {
   playerScores: { [playerId: string]: number };

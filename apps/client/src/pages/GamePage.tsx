@@ -34,6 +34,8 @@ export function GamePage() {
   const [pabloCountdown, setPabloCountdown] = useState<number>(15);
   const [roundEndTimer, setRoundEndTimer] = useState<number>(30);
   const [lastReplacedCard, setLastReplacedCard] = useState<{playerId: string, cardIndex: number} | null>(null);
+  const [trickCardTarget, setTrickCardTarget] = useState<{playerIndex: number, cardIndex: number} | null>(null);
+  const [myTrickCardIndex, setMyTrickCardIndex] = useState<number | null>(null);
 
   // Calculate game state variables
   const isMyTurn = gameState?.currentPlayerIndex !== undefined && 
@@ -167,18 +169,32 @@ export function GamePage() {
       }
     }, [gameState?.gamePhase, gameState?.roundEndTimer, currentPlayer?.isHost, executeAction]);
 
-   // Debug state changes
-  useEffect(() => {
-    console.log('GamePage: State change detected:', {
-      currentPlayerIndex: gameState?.currentPlayerIndex,
-      lastAction: gameState?.lastAction,
-      isPabloWindow: gameState?.lastAction?.type === 'pabloWindow',
-      currentPlayerId: currentPlayer?.id,
-      isMyTurn: isMyTurn,
-      canDraw: canDraw,
-      canCallPablo: canCallPablo
-    });
-  }, [gameState?.currentPlayerIndex, gameState?.lastAction, currentPlayer?.id, isMyTurn, canDraw, canCallPablo]);
+     // Debug state changes
+   useEffect(() => {
+     console.log('GamePage: State change detected:', {
+       currentPlayerIndex: gameState?.currentPlayerIndex,
+       lastAction: gameState?.lastAction,
+       isPabloWindow: gameState?.lastAction?.type === 'pabloWindow',
+       currentPlayerId: currentPlayer?.id,
+       isMyTurn: isMyTurn,
+       canDraw: canDraw,
+       canCallPablo: canCallPablo
+     });
+   }, [gameState?.currentPlayerIndex, gameState?.lastAction, currentPlayer?.id, isMyTurn, canDraw, canCallPablo]);
+
+   // Clear selection when it's not the current player's turn
+   useEffect(() => {
+     if (!isMyTurn && selectedCardIndex !== null) {
+       setSelectedCardIndex(null);
+     }
+   }, [isMyTurn, selectedCardIndex]);
+
+   // Clear selection when game phase changes
+   useEffect(() => {
+     if (gameState?.gamePhase !== 'playing' && selectedCardIndex !== null) {
+       setSelectedCardIndex(null);
+     }
+   }, [gameState?.gamePhase, selectedCardIndex]);
 
   const handleStartRound = () => {
     executeAction({ type: 'startRound' });
@@ -316,6 +332,55 @@ export function GamePage() {
       sendChatMessage(chatMessage.trim());
       setChatMessage('');
     }
+  };
+
+  const handleExecuteTrick = () => {
+    if (!gameState?.activeTrick || !currentPlayer?.id) return;
+
+    const { type: trickType } = gameState.activeTrick;
+    
+    if (trickType === '7' && myTrickCardIndex !== null && trickCardTarget) {
+      // Swap trick
+      executeAction({
+        type: 'executeTrick',
+        playerId: currentPlayer.id,
+        trickType: '7',
+        payload: {
+          myCardIndex: myTrickCardIndex,
+          targetPlayerIndex: trickCardTarget.playerIndex,
+          targetCardIndex: trickCardTarget.cardIndex
+        }
+      });
+      
+      // Clear trick state
+      setMyTrickCardIndex(null);
+      setTrickCardTarget(null);
+    } else if (trickType === '8' && trickCardTarget) {
+      // Spy trick
+      executeAction({
+        type: 'executeTrick',
+        playerId: currentPlayer.id,
+        trickType: '8',
+        payload: {
+          playerIndex: trickCardTarget.playerIndex,
+          cardIndex: trickCardTarget.cardIndex
+        }
+      });
+      
+      // Clear trick state
+      setTrickCardTarget(null);
+    }
+  };
+
+  const handleSkipTrick = () => {
+    if (!gameState?.activeTrick || !currentPlayer?.id) return;
+    
+    // Skip the trick and move to next player
+    executeAction({ type: 'pabloWindow', playerId: currentPlayer.id });
+    
+    // Clear trick state
+    setMyTrickCardIndex(null);
+    setTrickCardTarget(null);
   };
 
   // Debug logging
@@ -905,8 +970,8 @@ export function GamePage() {
                             // Remove peekable functionality - only allow during peeking phase
                             const isPeekable = false;
                             
-                                                         // Check if this card is selected for replacement
-                             const isSelectedForReplacement = selectedCardIndex === cardIndex && canReplace;
+                                                         // Check if this card is selected for replacement - only show for current player
+                             const isSelectedForReplacement = selectedCardIndex === cardIndex && canReplace && isMyCard;
                              // Check if this card was just replaced (show highlight for a few seconds)
                              const wasJustReplaced = lastReplacedCard && 
                                lastReplacedCard.playerId === player.id && 
@@ -1040,6 +1105,150 @@ export function GamePage() {
                          <li>• Click "Replace Card" button to complete the action</li>
                          <li>• Or click "Discard Drawn Card" to skip replacement</li>
                        </ul>
+                     </div>
+                   </div>
+                 )}
+
+                 {/* Trick Card Display */}
+                 {gameState.activeTrick && gameState.activeTrick.playerId === currentPlayer?.id && (
+                   <div className="bg-purple-50 border border-purple-200 rounded-lg p-2 mb-2">
+                     <h4 className="font-semibold text-purple-800 mb-1 text-sm">
+                       🎭 {gameState.activeTrick.type === '7' ? 'Swap Trick' : 'Spy Trick'} Activated!
+                     </h4>
+                     <div className="flex items-center justify-center mb-2">
+                       <PlayingCard
+                         card={gameState.activeTrick.card}
+                         className="border-2 border-purple-300 ring-4 ring-purple-400 ring-opacity-75 scale-110"
+                       />
+                     </div>
+                     
+                     {gameState.activeTrick.type === '7' && (
+                       <div className="space-y-2">
+                         <p className="text-xs text-purple-700 text-center">
+                           💫 Select one of your cards and one opponent card to swap
+                         </p>
+                         
+                         {/* My card selection */}
+                         <div className="text-center">
+                           <p className="text-xs text-purple-600 font-medium mb-1">Select your card:</p>
+                           <div className="flex justify-center space-x-1">
+                             {gameState.players.find(p => p.id === currentPlayer.id)?.cards.map((card, index) => (
+                               <div key={index} className="relative">
+                                 <PlayingCard
+                                   card={card}
+                                   isHidden={card && card.suit === 'hidden'}
+                                   className={`cursor-pointer transition-all ${
+                                     myTrickCardIndex === index ? 'ring-4 ring-purple-500 scale-110' : 'hover:scale-105'
+                                   }`}
+                                   onClick={() => setMyTrickCardIndex(index)}
+                                 />
+                                 {myTrickCardIndex === index && (
+                                   <div className="absolute -top-1 -left-1 bg-purple-500 text-white text-xs px-1 rounded-full">
+                                     ✓
+                                   </div>
+                                 )}
+                               </div>
+                             ))}
+                           </div>
+                         </div>
+                         
+                         {/* Target card selection */}
+                         <div className="text-center">
+                           <p className="text-xs text-purple-600 font-medium mb-1">Select opponent card:</p>
+                           <div className="grid grid-cols-2 md:grid-cols-3 gap-1">
+                             {gameState.players.map((player, playerIndex) => {
+                               if (player.id === currentPlayer.id) return null;
+                               return (
+                                 <div key={player.id} className="text-center">
+                                   <p className="text-xs text-gray-600 mb-1">{player.name}</p>
+                                   <div className="grid grid-cols-2 gap-1">
+                                     {player.cards.map((card, cardIndex) => (
+                                       <div key={cardIndex} className="relative">
+                                         <PlayingCard
+                                           card={card}
+                                           isHidden={card && card.suit === 'hidden'}
+                                           className={`cursor-pointer transition-all ${
+                                             trickCardTarget?.playerIndex === playerIndex && trickCardTarget?.cardIndex === cardIndex
+                                               ? 'ring-4 ring-purple-500 scale-110'
+                                               : 'hover:scale-105'
+                                           }`}
+                                           onClick={() => setTrickCardTarget({ playerIndex, cardIndex })}
+                                         />
+                                         {trickCardTarget?.playerIndex === playerIndex && trickCardTarget?.cardIndex === cardIndex && (
+                                           <div className="absolute -top-1 -right-1 bg-purple-500 text-white text-xs px-1 rounded-full">
+                                             ✓
+                                           </div>
+                                         )}
+                                       </div>
+                                     ))}
+                                   </div>
+                                 </div>
+                               );
+                             })}
+                           </div>
+                         </div>
+                       </div>
+                     )}
+                     
+                     {gameState.activeTrick.type === '8' && (
+                       <div className="space-y-2">
+                         <p className="text-xs text-purple-700 text-center">
+                           👁️ Select any card to spy on (yours or opponent's)
+                         </p>
+                         
+                         {/* Target card selection for spy */}
+                         <div className="text-center">
+                           <p className="text-xs text-purple-600 font-medium mb-1">Select card to spy:</p>
+                           <div className="grid grid-cols-2 md:grid-cols-3 gap-1">
+                             {gameState.players.map((player, playerIndex) => (
+                               <div key={player.id} className="text-center">
+                                 <p className="text-xs text-gray-600 mb-1">{player.name}</p>
+                                 <div className="grid grid-cols-2 gap-1">
+                                   {player.cards.map((card, cardIndex) => (
+                                     <div key={cardIndex} className="relative">
+                                       <PlayingCard
+                                         card={card}
+                                         isHidden={card && card.suit === 'hidden'}
+                                         className={`cursor-pointer transition-all ${
+                                           trickCardTarget?.playerIndex === playerIndex && trickCardTarget?.cardIndex === cardIndex
+                                             ? 'ring-4 ring-purple-500 scale-110'
+                                             : 'hover:scale-105'
+                                         }`}
+                                         onClick={() => setTrickCardTarget({ playerIndex, cardIndex })}
+                                       />
+                                       {trickCardTarget?.playerIndex === playerIndex && trickCardTarget?.cardIndex === cardIndex && (
+                                         <div className="absolute -top-1 -right-1 bg-purple-500 text-white text-xs px-1 rounded-full">
+                                           ✓
+                                         </div>
+                                       )}
+                                     </div>
+                                   ))}
+                                 </div>
+                               </div>
+                             ))}
+                           </div>
+                         </div>
+                       </div>
+                     )}
+                     
+                     {/* Trick action buttons */}
+                     <div className="flex space-x-2 mt-3">
+                       <button
+                         onClick={handleExecuteTrick}
+                         disabled={
+                           (gameState.activeTrick.type === '7' && (myTrickCardIndex === null || !trickCardTarget)) ||
+                           (gameState.activeTrick.type === '8' && !trickCardTarget)
+                         }
+                         className="flex-1 px-3 py-2 bg-purple-600 text-white rounded text-sm hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                       >
+                         {gameState.activeTrick.type === '7' ? 'Execute Swap' : 'Execute Spy'}
+                       </button>
+                       <button
+                         onClick={handleSkipTrick}
+                         className="px-3 py-2 bg-gray-600 text-white rounded text-sm hover:bg-gray-700 transition-colors"
+                       >
+                         Skip Trick
+                       </button>
                      </div>
                    </div>
                  )}

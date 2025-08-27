@@ -1,7 +1,7 @@
 import { GameState, GameAction, GameResult, Player, RoomSettings, Card, RoundHistory } from './types.js';
 import { createDeck, getCardValue, isPowerCard } from './cards.js';
 import { createRNG } from './rng.js';
-import { executePowerCard } from './powerCards.js';
+import { executePowerCard, activateTrickCard, executeTrickCard } from './powerCards.js';
 
 export class PabloGameEngine {
   private state: GameState;
@@ -203,6 +203,10 @@ export class PabloGameEngine {
         return this.endGame(action);
       case 'resetGame':
         return this.resetGame();
+      case 'activateTrick':
+        return this.handleActivateTrick(action);
+      case 'executeTrick':
+        return this.handleExecuteTrick(action);
       default:
         throw new Error(`Unknown action type: ${(action as any).type}`);
     }
@@ -361,6 +365,14 @@ export class PabloGameEngine {
     // Add drawn card to discard pile
     newDiscard.push(drawnCard);
 
+    // Check if this is a trick card (7 or 8) drawn from stock
+    let newLastAction: GameAction = { type: 'pabloWindow', playerId: action.playerId };
+    if (lastAction.source === 'stock' && (drawnCard.rank === '7' || drawnCard.rank === '8')) {
+      // This is a trick card - activate it
+      this.state = activateTrickCard(this.state, action.playerId, drawnCard.rank as '7' | '8', drawnCard);
+      newLastAction = { type: 'activateTrick', playerId: action.playerId, trickType: drawnCard.rank as '7' | '8', card: drawnCard };
+    }
+
     // Check if this is final round - if so, end turn immediately
     if (this.state.finalRoundStarted) {
       // Add current player to final turn list
@@ -377,7 +389,7 @@ export class PabloGameEngine {
         stock: newStock,
         discard: newDiscard,
         currentPlayerIndex: nextPlayerIndex,
-        lastAction: undefined, // Clear lastAction so next player can draw
+        lastAction: newLastAction,
         playersWhoHadFinalTurn: updatedFinalTurnPlayers
       };
 
@@ -387,12 +399,12 @@ export class PabloGameEngine {
         return this.endRound();
       }
     } else {
-      // Normal round - stay in Pablo window
+      // Normal round - stay in Pablo window or trick activation
       this.state = {
         ...this.state,
         stock: newStock,
         discard: newDiscard,
-        lastAction: { type: 'pabloWindow', playerId: action.playerId } // Start Pablo window
+        lastAction: newLastAction
       };
     }
 
@@ -796,6 +808,46 @@ export class PabloGameEngine {
       gamePhase: 'finished'
     };
 
+    return this.getState();
+  }
+
+  private handleActivateTrick(action: Extract<GameAction, { type: 'activateTrick' }>): GameState {
+    if (this.state.gamePhase !== 'playing') {
+      throw new Error('Cannot activate trick: game is not in playing phase');
+    }
+
+    const currentPlayer = this.state.players[this.state.currentPlayerIndex];
+    if (currentPlayer.id !== action.playerId) {
+      throw new Error('Not your turn');
+    }
+
+    // Check if the card is a valid trick card (7 or 8)
+    if (action.trickType !== '7' && action.trickType !== '8') {
+      throw new Error('Invalid trick card type');
+    }
+
+    // Activate the trick
+    this.state = activateTrickCard(this.state, action.playerId, action.trickType, action.card);
+    return this.getState();
+  }
+
+  private handleExecuteTrick(action: Extract<GameAction, { type: 'executeTrick' }>): GameState {
+    if (this.state.gamePhase !== 'playing') {
+      throw new Error('Cannot execute trick: game is not in playing phase');
+    }
+
+    const currentPlayer = this.state.players[this.state.currentPlayerIndex];
+    if (currentPlayer.id !== action.playerId) {
+      throw new Error('Not your turn');
+    }
+
+    // Check if there's an active trick
+    if (!this.state.activeTrick || this.state.activeTrick.playerId !== action.playerId) {
+      throw new Error('No active trick to execute');
+    }
+
+    // Execute the trick
+    this.state = executeTrickCard(this.state, action.playerId, action.trickType, action.payload);
     return this.getState();
   }
 }
