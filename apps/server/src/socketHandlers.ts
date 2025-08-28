@@ -352,6 +352,114 @@ export function setupSocketHandlers(io: Server, gameManager: GameManager, qaMana
       }
     });
 
+    // Trick card handlers
+    socket.on('turn:activateTrick', (data: { cardRank: string }) => {
+      const { playerId, roomId } = socket.data as SocketData;
+      if (!playerId || !roomId) return;
+
+      try {
+        console.log(`Server: Received activateTrick action from player ${playerId} for card ${data.cardRank}`);
+        const action: GameAction = {
+          type: 'activateTrick',
+          playerId,
+          cardRank: data.cardRank as any
+        };
+
+        const newState = gameManager.executeGameAction(roomId, action);
+        if (newState) {
+          console.log(`Server: ActivateTrick action executed. New state:`, {
+            gamePhase: newState.gamePhase,
+            activeTrick: newState.activeTrick
+          });
+          socket.emit('turn:result', { action, state: newState });
+          broadcastGameStateToRoom(roomId);
+        }
+      } catch (error) {
+        console.error('ActivateTrick error:', error);
+        socket.emit('error', { message: error instanceof Error ? error.message : 'Failed to activate trick' });
+      }
+    });
+
+    socket.on('turn:executeSwap', (data: { swapAction: any }) => {
+      const { playerId, roomId } = socket.data as SocketData;
+      if (!playerId || !roomId) return;
+
+      try {
+        console.log(`Server: Received executeSwap action from player ${playerId}`);
+        const action: GameAction = {
+          type: 'executeSwap',
+          playerId,
+          swapAction: data.swapAction
+        };
+
+        const newState = gameManager.executeGameAction(roomId, action);
+        if (newState) {
+          console.log(`Server: ExecuteSwap action executed. New state:`, {
+            gamePhase: newState.gamePhase,
+            activeTrick: newState.activeTrick
+          });
+          socket.emit('turn:result', { action, state: newState });
+          broadcastGameStateToRoom(roomId);
+        }
+      } catch (error) {
+        console.error('ExecuteSwap error:', error);
+        socket.emit('error', { message: error instanceof Error ? error.message : 'Failed to execute swap' });
+      }
+    });
+
+    socket.on('turn:executeSpy', (data: { spyAction: any }) => {
+      const { playerId, roomId } = socket.data as SocketData;
+      if (!playerId || !roomId) return;
+
+      try {
+        console.log(`Server: Received executeSpy action from player ${playerId}`);
+        const action: GameAction = {
+          type: 'executeSpy',
+          playerId,
+          spyAction: data.spyAction
+        };
+
+        const newState = gameManager.executeGameAction(roomId, action);
+        if (newState) {
+          console.log(`Server: ExecuteSpy action executed. New state:`, {
+            gamePhase: newState.gamePhase,
+            activeTrick: newState.activeTrick
+          });
+          socket.emit('turn:result', { action, state: newState });
+          broadcastGameStateToRoom(roomId);
+        }
+      } catch (error) {
+        console.error('ExecuteSpy error:', error);
+        socket.emit('error', { message: error instanceof Error ? error.message : 'Failed to execute spy' });
+      }
+    });
+
+    socket.on('turn:skipTrick', () => {
+      const { playerId, roomId } = socket.data as SocketData;
+      if (!playerId || !roomId) return;
+
+      try {
+        console.log(`Server: Received skipTrick action from player ${playerId}`);
+        const action: GameAction = {
+          type: 'skipTrick',
+          playerId
+        };
+
+        const newState = gameManager.executeGameAction(roomId, action);
+        if (newState) {
+          console.log(`Server: SkipTrick action executed. New state:`, {
+            gamePhase: newState.gamePhase,
+            activeTrick: newState.activeTrick
+          });
+          socket.emit('turn:result', { action, state: newState });
+          broadcastGameStateToRoom(roomId);
+        }
+      } catch (error) {
+        console.error('SkipTrick error:', error);
+        socket.emit('error', { message: error instanceof Error ? error.message : 'Failed to skip trick' });
+      }
+    });
+
     socket.on('game:resetGame', () => {
       const { playerId, roomId } = socket.data as SocketData;
       if (!playerId || !roomId) return;

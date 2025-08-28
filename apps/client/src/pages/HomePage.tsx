@@ -124,6 +124,15 @@ export function HomePage() {
               If not, they add penalty equal to the highest score. Game ends when someone reaches 100.
             </p>
           </div>
+
+          <div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Special Trick Cards</h3>
+            <p className="text-gray-600">
+              <strong>Card 7 (Swap):</strong> Swap one of your cards with any card from another player's area. 
+              You can look at the incoming card before placing it.<br/><br/>
+              <strong>Card 8 (Spy):</strong> Look at any card in your own or another player's area, then put it back immediately.
+            </p>
+          </div>
         </div>
       </div>
 

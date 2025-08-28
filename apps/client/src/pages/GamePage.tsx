@@ -1,7 +1,8 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useGameStore } from '../stores/gameStore';
 import { PlayingCard } from '../components/PlayingCard';
+import { TrickCardModal } from '../components/TrickCardModal';
 import { 
   ArrowUpCircle, 
   ArrowDownCircle, 
@@ -10,7 +11,9 @@ import {
   Trophy,
   LogOut,
   Play,
-  SkipForward
+  SkipForward,
+  Volume2,
+  VolumeX
 } from 'lucide-react';
 
 export function GamePage() {
@@ -33,6 +36,14 @@ export function GamePage() {
   const [pabloTimer, setPabloTimer] = useState<number | null>(null);
   const [pabloCountdown, setPabloCountdown] = useState<number>(15);
   const [lastReplacedCard, setLastReplacedCard] = useState<{playerId: string, cardIndex: number} | null>(null);
+  
+  // Trick card state
+  const [showTrickCardModal, setShowTrickCardModal] = useState(false);
+  
+  // Background music state
+  const [isMusicPlaying, setIsMusicPlaying] = useState(false);
+  const [isMusicMuted, setIsMusicMuted] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
 
   // Calculate game state variables
@@ -47,6 +58,11 @@ export function GamePage() {
   const canCallPablo = isMyTurn && gameState?.gamePhase === 'playing' && !isPabloWindow && !gameState?.lastAction?.type && !gameState?.pabloCalled && !gameState?.finalRoundStarted;
   const isFinalRound = gameState?.finalRoundStarted;
   const pabloCaller = gameState?.pabloCallerId ? gameState.players.find(p => p.id === gameState.pabloCallerId) : null;
+  
+  // Trick card state
+  const isTrickActive = gameState?.gamePhase === 'trickActive';
+  const activeTrick = gameState?.activeTrick;
+  const isMyTrick = activeTrick?.playerId === currentPlayer?.id;
 
   // Debug logging (only in development)
   if (import.meta.env.DEV) {
@@ -59,6 +75,47 @@ export function GamePage() {
       navigate('/');
     }
   }, [storeRoomId, isLoading, navigate]);
+
+  // Background music setup
+  useEffect(() => {
+    if (!audioRef.current) {
+      audioRef.current = new Audio('/bg_music.mp3');
+      audioRef.current.loop = true;
+      audioRef.current.volume = 0.3;
+    }
+
+    // Start playing when game starts
+    if (gameState?.gamePhase === 'playing' && !isMusicPlaying) {
+      audioRef.current.play().then(() => {
+        setIsMusicPlaying(true);
+      }).catch((error) => {
+        console.log('Could not autoplay music:', error);
+      });
+    }
+
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, [gameState?.gamePhase, isMusicPlaying]);
+
+  // Handle music mute/unmute
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.muted = isMusicMuted;
+    }
+  }, [isMusicMuted]);
+
+  // Trick card modal handling
+  useEffect(() => {
+    if (isTrickActive && isMyTrick && activeTrick) {
+      setShowTrickCardModal(true);
+    } else {
+      setShowTrickCardModal(false);
+    }
+  }, [isTrickActive, isMyTrick, activeTrick]);
 
   // Auto-connect and auto-reconnect when component mounts
   useEffect(() => {
@@ -304,6 +361,34 @@ export function GamePage() {
       sendChatMessage(chatMessage.trim());
       setChatMessage('');
     }
+  };
+
+  // Trick card handlers
+  const handleExecuteSwap = (swapAction: any) => {
+    if (currentPlayer?.id) {
+      executeAction({ type: 'executeSwap', playerId: currentPlayer.id, swapAction });
+    }
+  };
+
+  const handleExecuteSpy = (spyAction: any) => {
+    if (currentPlayer?.id) {
+      executeAction({ type: 'executeSpy', playerId: currentPlayer.id, spyAction });
+    }
+  };
+
+  const handleSkipTrick = () => {
+    if (currentPlayer?.id) {
+      executeAction({ type: 'skipTrick', playerId: currentPlayer.id });
+    }
+  };
+
+  const handleCloseTrickModal = () => {
+    setShowTrickCardModal(false);
+  };
+
+  // Music controls
+  const toggleMusicMute = () => {
+    setIsMusicMuted(!isMusicMuted);
   };
 
 
@@ -821,6 +906,17 @@ export function GamePage() {
               <p className="text-sm text-gray-600">Connected Players</p>
               <p className="font-semibold">{gameState.players.filter(p => p.isConnected).length}/{gameState.players.length}</p>
             </div>
+            
+            {/* Music Control */}
+            <button
+              onClick={toggleMusicMute}
+              className="flex items-center justify-center space-x-2 px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+              title={isMusicMuted ? "Unmute background music" : "Mute background music"}
+            >
+              {isMusicMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+              <span className="text-sm">{isMusicMuted ? "Unmute" : "Mute"}</span>
+            </button>
+            
             {currentPlayer?.isHost && (
               <button
                 onClick={handleEndGame}
@@ -1223,6 +1319,19 @@ export function GamePage() {
            </div>
         </div>
       </div>
+
+      {/* Trick Card Modal */}
+      {showTrickCardModal && activeTrick && (
+        <TrickCardModal
+          activeTrick={activeTrick}
+          players={gameState.players}
+          currentPlayerId={currentPlayer?.id || ''}
+          onExecuteSwap={handleExecuteSwap}
+          onExecuteSpy={handleExecuteSpy}
+          onSkipTrick={handleSkipTrick}
+          onClose={handleCloseTrickModal}
+        />
+      )}
     </div>
   );
 }

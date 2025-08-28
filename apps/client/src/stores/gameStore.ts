@@ -360,6 +360,19 @@ export const useGameStore = create<GameStore>()(
         case 'resetGame':
           socket.emit('game:resetGame');
           break;
+        // New trick card actions
+        case 'activateTrick':
+          socket.emit('turn:activateTrick', { cardRank: action.cardRank });
+          break;
+        case 'executeSwap':
+          socket.emit('turn:executeSwap', { swapAction: action.swapAction });
+          break;
+        case 'executeSpy':
+          socket.emit('turn:executeSpy', { spyAction: action.spyAction });
+          break;
+        case 'skipTrick':
+          socket.emit('turn:skipTrick');
+          break;
         default:
           console.warn('GameStore: Unknown action type:', (action as any).type);
       }

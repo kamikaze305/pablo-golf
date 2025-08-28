@@ -1,6 +1,7 @@
 import { GameState, GameAction, GameResult, Player, RoomSettings, Card, RoundHistory } from './types.js';
 import { createDeck, getCardValue } from './cards.js';
 import { createRNG } from './rng.js';
+import { isTrickCard, createTrickCardState, validateSwapAction, validateSpyAction, executeSwap, getSpyTargetCard } from './trickCards.js';
 
 
 export class PabloGameEngine {
@@ -19,7 +20,10 @@ export class PabloGameEngine {
 
     this.state = {
       roomId,
-      settings,
+      settings: {
+        ...settings,
+        specialTricksEnabled: settings.specialTricksEnabled ?? true // Default to enabled
+      },
       players: playersWithShortIds,
       currentPlayerIndex: 0,
       stock: [],
@@ -206,6 +210,15 @@ export class PabloGameEngine {
         return this.endGame(action);
       case 'resetGame':
         return this.resetGame();
+      // New trick card actions
+      case 'activateTrick':
+        return this.handleActivateTrick(action);
+      case 'executeSwap':
+        return this.handleExecuteSwap(action);
+      case 'executeSpy':
+        return this.handleExecuteSpy(action);
+      case 'skipTrick':
+        return this.handleSkipTrick(action);
       default:
         throw new Error(`Unknown action type: ${(action as any).type}`);
     }
@@ -364,8 +377,15 @@ export class PabloGameEngine {
     // Add drawn card to discard pile
     newDiscard.push(drawnCard);
 
-    // Set last action to pablo window
+    // Check if the discarded card is a trick card and special tricks are enabled
     let newLastAction: GameAction = { type: 'pabloWindow', playerId: action.playerId };
+    let newActiveTrick = this.state.activeTrick;
+    
+    if (this.state.settings.specialTricksEnabled && isTrickCard(drawnCard.rank)) {
+      // Activate trick card
+      newActiveTrick = createTrickCardState(action.playerId, drawnCard.rank);
+      newLastAction = { type: 'activateTrick', playerId: action.playerId, cardRank: drawnCard.rank };
+    }
 
     // Check if this is final round - if so, end turn immediately
     if (this.state.finalRoundStarted) {
@@ -384,6 +404,7 @@ export class PabloGameEngine {
         discard: newDiscard,
         currentPlayerIndex: nextPlayerIndex,
         lastAction: newLastAction,
+        activeTrick: newActiveTrick,
         playersWhoHadFinalTurn: updatedFinalTurnPlayers
       };
 
@@ -398,7 +419,8 @@ export class PabloGameEngine {
         ...this.state,
         stock: newStock,
         discard: newDiscard,
-        lastAction: newLastAction
+        lastAction: newLastAction,
+        activeTrick: newActiveTrick
       };
     }
 
@@ -799,6 +821,115 @@ export class PabloGameEngine {
     return this.getState();
   }
 
+  // Trick card handling methods
+  private handleActivateTrick(action: Extract<GameAction, { type: 'activateTrick' }>): GameState {
+    if (this.state.gamePhase !== 'playing') {
+      throw new Error('Cannot activate trick: game is not in playing phase');
+    }
+
+    const currentPlayer = this.state.players[this.state.currentPlayerIndex];
+    if (currentPlayer.id !== action.playerId) {
+      throw new Error('Not your turn');
+    }
+
+    // Set game phase to trick active
+    this.state = {
+      ...this.state,
+      gamePhase: 'trickActive'
+    };
+
+    return this.getState();
+  }
+
+  private handleExecuteSwap(action: Extract<GameAction, { type: 'executeSwap' }>): GameState {
+    if (this.state.gamePhase !== 'trickActive') {
+      throw new Error('Cannot execute swap: trick is not active');
+    }
+
+    const currentPlayer = this.state.players[this.state.currentPlayerIndex];
+    if (currentPlayer.id !== action.playerId) {
+      throw new Error('Not your turn');
+    }
+
+    if (!this.state.activeTrick || this.state.activeTrick.type !== 'swap') {
+      throw new Error('No swap trick active');
+    }
+
+    // Validate the swap action
+    const validation = validateSwapAction(action.swapAction, this.state.players, action.playerId);
+    if (!validation.isValid) {
+      throw new Error(validation.error || 'Invalid swap action');
+    }
+
+    // Execute the swap
+    const newPlayers = executeSwap(this.state.players, action.swapAction);
+
+    // Clear the trick and return to Pablo window
+    this.state = {
+      ...this.state,
+      players: newPlayers,
+      gamePhase: 'playing',
+      activeTrick: undefined,
+      lastAction: { type: 'pabloWindow', playerId: action.playerId }
+    };
+
+    return this.getState();
+  }
+
+  private handleExecuteSpy(action: Extract<GameAction, { type: 'executeSpy' }>): GameState {
+    if (this.state.gamePhase !== 'trickActive') {
+      throw new Error('Cannot execute spy: trick is not active');
+    }
+
+    const currentPlayer = this.state.players[this.state.currentPlayerIndex];
+    if (currentPlayer.id !== action.playerId) {
+      throw new Error('Not your turn');
+    }
+
+    if (!this.state.activeTrick || this.state.activeTrick.type !== 'spy') {
+      throw new Error('No spy trick active');
+    }
+
+    // Validate the spy action
+    const validation = validateSpyAction(action.spyAction, this.state.players);
+    if (!validation.isValid) {
+      throw new Error(validation.error || 'Invalid spy action');
+    }
+
+    // Get the target card (this would be shown to the player in the UI)
+    const targetCard = getSpyTargetCard(this.state.players, action.spyAction);
+
+    // Clear the trick and return to Pablo window
+    this.state = {
+      ...this.state,
+      gamePhase: 'playing',
+      activeTrick: undefined,
+      lastAction: { type: 'pabloWindow', playerId: action.playerId }
+    };
+
+    return this.getState();
+  }
+
+  private handleSkipTrick(action: Extract<GameAction, { type: 'skipTrick' }>): GameState {
+    if (this.state.gamePhase !== 'trickActive') {
+      throw new Error('Cannot skip trick: trick is not active');
+    }
+
+    const currentPlayer = this.state.players[this.state.currentPlayerIndex];
+    if (currentPlayer.id !== action.playerId) {
+      throw new Error('Not your turn');
+    }
+
+    // Clear the trick and return to Pablo window
+    this.state = {
+      ...this.state,
+      gamePhase: 'playing',
+      activeTrick: undefined,
+      lastAction: { type: 'pabloWindow', playerId: action.playerId }
+    };
+
+    return this.getState();
+  }
 
 }
 

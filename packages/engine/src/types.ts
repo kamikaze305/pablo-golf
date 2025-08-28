@@ -19,6 +19,30 @@ export interface Player {
   shortId?: string;
 }
 
+// New types for special trick cards
+export interface TrickCardState {
+  isActive: boolean;
+  type: 'swap' | 'spy' | null;
+  playerId: string;
+  cardRank: Rank;
+  instructions: string;
+  targetPlayerId?: string;
+  targetCardIndex?: number;
+  sourceCardIndex?: number;
+}
+
+export interface SwapAction {
+  sourcePlayerId: string;
+  sourceCardIndex: number;
+  targetPlayerId: string;
+  targetCardIndex: number;
+}
+
+export interface SpyAction {
+  targetPlayerId: string;
+  targetCardIndex: number;
+}
+
 export interface GameSettings {
   jokersEnabled: boolean;
   faceCardValues: {
@@ -26,13 +50,14 @@ export interface GameSettings {
     Q: number;
     K: number;
   };
-
   matchingRule: boolean;
   targetScore: number;
   revealOnDisconnect: boolean;
   maxPlayers: number;
   scoreboardCarryover: boolean;
   autosaveRoundState: boolean;
+  // New setting for special trick cards
+  specialTricksEnabled: boolean;
 }
 
 export interface RoomSettings extends GameSettings {
@@ -55,7 +80,7 @@ export interface GameState {
   currentPlayerIndex: number;
   stock: Card[];
   discard: Card[];
-  gamePhase: 'waiting' | 'peeking' | 'playing' | 'scored' | 'finished' | 'roundEnd';
+  gamePhase: 'waiting' | 'peeking' | 'playing' | 'scored' | 'finished' | 'roundEnd' | 'trickActive';
   roundNumber: number;
   shuffleSeed: number;
   lastAction?: GameAction;
@@ -68,14 +93,14 @@ export interface GameState {
   roundHistory: RoundHistory[];
   peekedCards?: { [playerId: string]: number[] };
   readyPlayers?: string[]; // Track which players have clicked ready
-
+  // New trick card state
+  activeTrick?: TrickCardState;
 }
 
 export type GameAction = 
   | { type: 'draw'; source: 'stock' | 'discard'; playerId: string; card?: Card }
   | { type: 'replace'; playerId: string; cardIndex: number; card?: Card }
   | { type: 'discard'; playerId: string }
-
   | { type: 'callPablo'; playerId: string }
   | { type: 'pabloWindow'; playerId: string }
   | { type: 'peekCard'; playerId: string; cardIndex: number }
@@ -84,6 +109,11 @@ export type GameAction =
   | { type: 'endRound' }
   | { type: 'endGame'; playerId: string }
   | { type: 'resetGame' }
+  // New trick card actions
+  | { type: 'activateTrick'; playerId: string; cardRank: Rank }
+  | { type: 'executeSwap'; playerId: string; swapAction: SwapAction }
+  | { type: 'executeSpy'; playerId: string; spyAction: SpyAction }
+  | { type: 'skipTrick'; playerId: string }
 
 
 export interface GameResult {

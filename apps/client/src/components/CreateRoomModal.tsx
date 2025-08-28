@@ -193,6 +193,16 @@ export function CreateRoomModal() {
                   className="w-4 h-4 text-primary-600"
                 />
               </div>
+
+              <div className="flex items-center justify-between">
+                <label className="text-sm text-gray-700">Special Trick Cards (7 & 8)</label>
+                <input
+                  type="checkbox"
+                  checked={settings.specialTricksEnabled}
+                  onChange={(e) => updateSetting('specialTricksEnabled', e.target.checked)}
+                  className="w-4 h-4 text-primary-600"
+                />
+              </div>
             </div>
 
             {/* Access */}
