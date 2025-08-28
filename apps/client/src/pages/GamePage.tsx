@@ -2,7 +2,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState, useRef } from 'react';
 import { useGameStore } from '../stores/gameStore';
 import { PlayingCard } from '../components/PlayingCard';
-import { TrickCardModal } from '../components/TrickCardModal';
 import { 
   ArrowUpCircle, 
   ArrowDownCircle, 
@@ -37,8 +36,7 @@ export function GamePage() {
   const [pabloCountdown, setPabloCountdown] = useState<number>(15);
   const [lastReplacedCard, setLastReplacedCard] = useState<{playerId: string, cardIndex: number} | null>(null);
   
-  // Trick card state
-  const [showTrickCardModal, setShowTrickCardModal] = useState(false);
+
   
   // Background music state
   const [isMusicPlaying, setIsMusicPlaying] = useState(false);
@@ -63,6 +61,15 @@ export function GamePage() {
   const isTrickActive = gameState?.gamePhase === 'trickActive';
   const activeTrick = gameState?.activeTrick;
   const isMyTrick = activeTrick?.playerId === currentPlayer?.id;
+  
+  // Trick card action states
+  const [swapSourceCardIndex, setSwapSourceCardIndex] = useState<number | null>(null);
+  const [swapTargetPlayerId, setSwapTargetPlayerId] = useState<string>('');
+  const [swapTargetCardIndex, setSwapTargetCardIndex] = useState<number | null>(null);
+  const [spyTargetPlayerId, setSpyTargetPlayerId] = useState<string>('');
+  const [spyTargetCardIndex, setSpyTargetCardIndex] = useState<number | null>(null);
+  const [showIncomingCard, setShowIncomingCard] = useState<boolean>(false);
+  const [incomingCard, setIncomingCard] = useState<any>(null);
 
   // Debug logging (only in development)
   if (import.meta.env.DEV) {
@@ -108,14 +115,26 @@ export function GamePage() {
     }
   }, [isMusicMuted]);
 
-  // Trick card modal handling
+  // Trick card state handling
   useEffect(() => {
-    if (isTrickActive && isMyTrick && activeTrick) {
-      setShowTrickCardModal(true);
-    } else {
-      setShowTrickCardModal(false);
-    }
-  }, [isTrickActive, isMyTrick, activeTrick]);
+    console.log('GamePage: Trick card effect triggered');
+    console.log('GamePage: isTrickActive =', isTrickActive);
+    console.log('GamePage: isMyTrick =', isMyTrick);
+    console.log('GamePage: activeTrick =', activeTrick);
+    console.log('GamePage: gamePhase =', gameState?.gamePhase);
+    console.log('GamePage: lastAction =', gameState?.lastAction);
+    
+         // Reset trick card states when trick is not active
+     if (!isTrickActive || !isMyTrick || !activeTrick) {
+       setSwapSourceCardIndex(null);
+       setSwapTargetPlayerId('');
+       setSwapTargetCardIndex(null);
+       setSpyTargetPlayerId('');
+       setSpyTargetCardIndex(null);
+       setShowIncomingCard(false);
+       setIncomingCard(null);
+     }
+  }, [isTrickActive, isMyTrick, activeTrick, gameState?.gamePhase, gameState?.lastAction]);
 
   // Auto-connect and auto-reconnect when component mounts
   useEffect(() => {
@@ -364,15 +383,63 @@ export function GamePage() {
   };
 
   // Trick card handlers
-  const handleExecuteSwap = (swapAction: any) => {
-    if (currentPlayer?.id) {
-      executeAction({ type: 'executeSwap', playerId: currentPlayer.id, swapAction });
+  const handleExecuteSwap = () => {
+    if (currentPlayer?.id && swapSourceCardIndex !== null && swapTargetPlayerId && swapTargetCardIndex !== null && gameState) {
+      // Show the incoming card first
+      const targetPlayer = gameState.players.find(p => p.id === swapTargetPlayerId);
+      if (targetPlayer && targetPlayer.cards[swapTargetCardIndex]) {
+        // Create a revealed version of the card for display
+        const targetCard = targetPlayer.cards[swapTargetCardIndex];
+        const revealedCard = {
+          ...targetCard,
+          suit: targetCard.suit === 'hidden' && targetCard.originalSuit ? targetCard.originalSuit : targetCard.suit,
+          rank: (targetCard.rank as any) === 'hidden' && targetCard.originalRank ? targetCard.originalRank : targetCard.rank
+        };
+        setIncomingCard(revealedCard);
+        setShowIncomingCard(true);
+        
+        // Execute swap after showing the card
+        setTimeout(() => {
+          const swapAction = {
+            sourcePlayerId: currentPlayer.id,
+            sourceCardIndex: swapSourceCardIndex,
+            targetPlayerId: swapTargetPlayerId,
+            targetCardIndex: swapTargetCardIndex
+          };
+          executeAction({ type: 'executeSwap', playerId: currentPlayer.id, swapAction });
+          setShowIncomingCard(false);
+          setIncomingCard(null);
+        }, 2000);
+      }
     }
   };
 
-  const handleExecuteSpy = (spyAction: any) => {
-    if (currentPlayer?.id) {
-      executeAction({ type: 'executeSpy', playerId: currentPlayer.id, spyAction });
+  const handleExecuteSpy = () => {
+    if (currentPlayer?.id && spyTargetPlayerId && spyTargetCardIndex !== null && gameState) {
+      // Show the spied card first
+      const targetPlayer = gameState.players.find(p => p.id === spyTargetPlayerId);
+      if (targetPlayer && targetPlayer.cards[spyTargetCardIndex]) {
+        // Create a revealed version of the card for display
+        const targetCard = targetPlayer.cards[spyTargetCardIndex];
+        const revealedCard = {
+          ...targetCard,
+          suit: targetCard.suit === 'hidden' && targetCard.originalSuit ? targetCard.originalSuit : targetCard.suit,
+          rank: (targetCard.rank as any) === 'hidden' && targetCard.originalRank ? targetCard.originalRank : targetCard.rank
+        };
+        setIncomingCard(revealedCard);
+        setShowIncomingCard(true);
+        
+        // Execute spy after showing the card
+        setTimeout(() => {
+          const spyAction = {
+            targetPlayerId: spyTargetPlayerId,
+            targetCardIndex: spyTargetCardIndex
+          };
+          executeAction({ type: 'executeSpy', playerId: currentPlayer.id, spyAction });
+          setShowIncomingCard(false);
+          setIncomingCard(null);
+        }, 2000);
+      }
     }
   };
 
@@ -380,10 +447,6 @@ export function GamePage() {
     if (currentPlayer?.id) {
       executeAction({ type: 'skipTrick', playerId: currentPlayer.id });
     }
-  };
-
-  const handleCloseTrickModal = () => {
-    setShowTrickCardModal(false);
   };
 
   // Music controls
@@ -993,19 +1056,28 @@ export function GamePage() {
                         </div>
                        
                                                {/* Cards Grid - Compact */}
-                        <div className="grid grid-cols-2 gap-1 max-w-[120px] mx-auto">
-                          {player.cards.map((card, cardIndex) => {
-                            const isMyCard = currentPlayer?.id === player.id;
-                            const isHidden = card && card.suit === 'hidden';
-                            // Remove peekable functionality - only allow during peeking phase
-                            const isPeekable = false;
-                            
-                                                         // Check if this card is selected for replacement - only show for current player
+                                                 <div className="grid grid-cols-2 gap-1 max-w-[120px] mx-auto">
+                           {player.cards.map((card, cardIndex) => {
+                             const isMyCard = currentPlayer?.id === player.id;
+                             const isHidden = card && card.suit === 'hidden';
+                             // Remove peekable functionality - only allow during peeking phase
+                             const isPeekable = false;
+                             
+                             // Check if this card is selected for replacement - only show for current player
                              const isSelectedForReplacement = selectedCardIndex === cardIndex && canReplace && isMyCard;
                              // Check if this card was just replaced (show highlight for a few seconds)
                              const wasJustReplaced = lastReplacedCard && 
                                lastReplacedCard.playerId === player.id && 
                                lastReplacedCard.cardIndex === cardIndex;
+                             
+                                                           // Swap trick card selection
+                              const isSwapSourceCard = isMyCard && isTrickActive && isMyTrick && activeTrick?.type === 'swap' && swapSourceCardIndex === cardIndex;
+                              const isSwapTargetCard = !isMyCard && isTrickActive && isMyTrick && activeTrick?.type === 'swap' && 
+                                swapTargetPlayerId === player.id && swapTargetCardIndex === cardIndex;
+                              
+                              // Spy trick card selection
+                              const isSpyTargetCard = isTrickActive && isMyTrick && activeTrick?.type === 'spy' && 
+                                spyTargetPlayerId === player.id && spyTargetCardIndex === cardIndex;
                              
                              return (
                                <div key={cardIndex} className="relative">
@@ -1014,16 +1086,38 @@ export function GamePage() {
                                    isHidden={isHidden}
                                    isSelected={isSelectedForReplacement}
                                    isPeekable={isPeekable}
-                                   onClick={() => {
-                                     if (isMyCard && canReplace) {
-                                       setSelectedCardIndex(cardIndex);
-                                     }
-                                   }}
-                                   className={`
-                                     ${isSelectedForReplacement ? 'ring-4 ring-purple-500 ring-opacity-75 scale-110' : ''}
-                                     ${wasJustReplaced ? 'ring-4 ring-green-500 ring-opacity-75 scale-110 animate-pulse' : ''}
-                                     transition-all duration-200
-                                   `}
+                                                                       onClick={() => {
+                                      if (isMyCard && canReplace) {
+                                        setSelectedCardIndex(cardIndex);
+                                      } else if (isTrickActive && isMyTrick && activeTrick?.type === 'swap') {
+                                        // Handle swap card selection
+                                        if (isMyCard) {
+                                          setSwapSourceCardIndex(cardIndex);
+                                          setSwapTargetPlayerId(''); // Reset target selection
+                                          setSwapTargetCardIndex(null);
+                                        } else if (swapSourceCardIndex !== null) {
+                                          // Set target player and card
+                                          setSwapTargetPlayerId(player.id);
+                                          setSwapTargetCardIndex(cardIndex);
+                                        }
+                                      } else if (isTrickActive && isMyTrick && activeTrick?.type === 'spy') {
+                                        // Handle spy card selection
+                                        setSpyTargetPlayerId(player.id);
+                                        setSpyTargetCardIndex(cardIndex);
+                                      }
+                                    }}
+                                                                       className={`
+                                      ${isSelectedForReplacement ? 'ring-4 ring-purple-500 ring-opacity-75 scale-110' : ''}
+                                      ${wasJustReplaced ? 'ring-4 ring-green-500 ring-opacity-75 scale-110 animate-pulse' : ''}
+                                      ${isSwapSourceCard ? 'ring-4 ring-red-500 ring-opacity-75 scale-110' : ''}
+                                      ${isSwapTargetCard ? 'ring-4 ring-red-500 ring-opacity-75 scale-110' : ''}
+                                      ${isSpyTargetCard ? 'ring-4 ring-blue-500 ring-opacity-75 scale-110' : ''}
+                                      ${(isMyCard && isTrickActive && isMyTrick && activeTrick?.type === 'swap') || 
+                                        (!isMyCard && isTrickActive && isMyTrick && activeTrick?.type === 'swap' && swapSourceCardIndex !== null && swapTargetPlayerId === player.id) ||
+                                        (isTrickActive && isMyTrick && activeTrick?.type === 'spy')
+                                        ? 'cursor-pointer hover:scale-105' : ''}
+                                      transition-all duration-200
+                                    `}
                                  />
                                  
                                  {/* Selection indicator */}
@@ -1039,10 +1133,29 @@ export function GamePage() {
                                      REPLACED
                                    </div>
                                  )}
+                                 
+                                 {/* Swap selection indicators */}
+                                 {isSwapSourceCard && (
+                                   <div className="absolute -top-2 -left-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full font-bold z-10">
+                                     YOUR CARD
+                                   </div>
+                                 )}
+                                 
+                                                                   {isSwapTargetCard && (
+                                    <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full font-bold z-10">
+                                      TARGET CARD
+                                    </div>
+                                  )}
+                                  
+                                  {isSpyTargetCard && (
+                                    <div className="absolute -top-2 -right-2 bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-bold z-10">
+                                      SPY TARGET
+                                    </div>
+                                  )}
                                </div>
                              );
-                          })}
-                        </div>
+                           })}
+                         </div>
                        
                                                {player.roundScore > 0 && (
                           <p className="text-center mt-1 text-xs text-gray-600">
@@ -1107,25 +1220,25 @@ export function GamePage() {
                   </div>
                 )}
                 
-                {canDraw && (
-                 <>
-                   <button
-                     onClick={handleDrawFromStock}
-                     className="w-full flex items-center justify-center space-x-1 px-3 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors"
-                   >
-                     <ArrowDownCircle size={14} />
-                     <span>Draw from Stock</span>
-                   </button>
-                   
-                   <button
-                     onClick={handleDrawFromDiscard}
-                     className="w-full flex items-center justify-center space-x-1 px-3 py-1.5 bg-green-600 text-white rounded text-sm hover:bg-green-700 transition-colors"
-                   >
-                     <ArrowUpCircle size={14} />
-                     <span>Draw from Discard</span>
-                   </button>
-                 </>
-               )}
+                                 {canDraw && !isTrickActive && (
+                  <>
+                    <button
+                      onClick={handleDrawFromStock}
+                      className="w-full flex items-center justify-center space-x-1 px-3 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors"
+                    >
+                      <ArrowDownCircle size={14} />
+                      <span>Draw from Stock</span>
+                    </button>
+                    
+                    <button
+                      onClick={handleDrawFromDiscard}
+                      className="w-full flex items-center justify-center space-x-1 px-3 py-1.5 bg-green-600 text-white rounded text-sm hover:bg-green-700 transition-colors"
+                    >
+                      <ArrowUpCircle size={14} />
+                      <span>Draw from Discard</span>
+                    </button>
+                  </>
+                )}
               
                                                               {/* Drawn Card Display */}
                  {gameState.lastAction?.type === 'draw' && currentPlayer?.id === gameState.lastAction.playerId && (
@@ -1156,62 +1269,145 @@ export function GamePage() {
 
 
 
-                             {canReplace && (
-                 <button
-                   onClick={handleReplaceCard}
-                   disabled={selectedCardIndex === null}
-                   className="w-full flex items-center justify-center space-x-1 px-3 py-1.5 bg-purple-600 text-white rounded text-sm hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-                 >
-                   <RotateCcw size={14} />
-                   <span>Replace Card</span>
-                 </button>
-               )}
+                                                           {canReplace && !isTrickActive && (
+                  <button
+                    onClick={handleReplaceCard}
+                    disabled={selectedCardIndex === null}
+                    className="w-full flex items-center justify-center space-x-1 px-3 py-1.5 bg-purple-600 text-white rounded text-sm hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <RotateCcw size={14} />
+                    <span>Replace Card</span>
+                  </button>
+                )}
 
-               {canDiscard && (
-                 <button
-                   onClick={handleDiscardCard}
-                   className="w-full flex items-center justify-center space-x-1 px-3 py-1.5 bg-orange-600 text-white rounded text-sm hover:bg-orange-700 transition-colors"
-                 >
-                   <SkipForward size={14} />
-                   <span>Discard Drawn Card</span>
-                 </button>
-               )}
-               
-               {canCallPablo && (
-                 <button
-                   onClick={handleCallPablo}
-                   className="w-full flex items-center justify-center space-x-1 px-3 py-1.5 bg-red-600 text-white rounded text-sm hover:bg-red-700 transition-colors"
-                 >
-                   <SkipForward size={14} />
-                   <span>Call Pablo!</span>
-                 </button>
-               )}
+                {canDiscard && !isTrickActive && (
+                  <button
+                    onClick={handleDiscardCard}
+                    className="w-full flex items-center justify-center space-x-1 px-3 py-1.5 bg-orange-600 text-white rounded text-sm hover:bg-orange-700 transition-colors"
+                  >
+                    <SkipForward size={14} />
+                    <span>Discard Drawn Card</span>
+                  </button>
+                )}
+                
+                {canCallPablo && !isTrickActive && (
+                  <button
+                    onClick={handleCallPablo}
+                    className="w-full flex items-center justify-center space-x-1 px-3 py-1.5 bg-red-600 text-white rounded text-sm hover:bg-red-700 transition-colors"
+                  >
+                    <SkipForward size={14} />
+                    <span>Call Pablo!</span>
+                  </button>
+                )}
 
-                                                                              {/* Pablo Window Display */}
-               {isPabloWindow && currentPlayer?.id === (gameState.lastAction as any)?.playerId && (
-                 <div className="bg-red-50 border border-red-200 rounded-lg p-2 mb-2">
-                   <h4 className="font-semibold text-red-800 mb-1 text-sm">Pablo Window - {pabloCountdown}s</h4>
-                   <p className="text-xs text-red-700 text-center mb-2">
-                     Call Pablo or skip to end turn
-                   </p>
-                   <div className="space-y-1">
-                     <button
-                       onClick={handleCallPablo}
-                       className="w-full flex items-center justify-center space-x-1 px-3 py-1.5 bg-red-600 text-white rounded text-sm hover:bg-red-700 transition-colors"
-                     >
-                       <SkipForward size={14} />
-                       <span>Call Pablo Now!</span>
-                     </button>
-                     <button
-                       onClick={handleSkipPablo}
-                       className="w-full flex items-center justify-center space-x-1 px-3 py-1.5 bg-gray-600 text-white rounded text-sm hover:bg-gray-700 transition-colors"
-                     >
-                       <SkipForward size={14} />
-                       <span>Skip Pablo - End Turn</span>
-                     </button>
-                   </div>
-                 </div>
-               )}
+                {/* Trick Card Actions */}
+                {isTrickActive && isMyTrick && activeTrick && (
+                  <div className="bg-purple-50 border border-purple-200 rounded-lg p-2 mb-2">
+                    <h4 className="font-semibold text-purple-800 mb-1 text-sm">
+                      {activeTrick.cardRank === '7' ? '🔄 Swap Trick' : '👁️ Spy Trick'}
+                    </h4>
+                    <p className="text-xs text-purple-700 text-center mb-2">
+                      {activeTrick.instructions}
+                    </p>
+                    
+                                         {activeTrick.type === 'swap' && (
+                       <div className="space-y-2">
+                         {/* Instructions */}
+                         <div className="text-center">
+                           <p className="text-xs text-purple-700 mb-2">
+                             Click on your card first, then click on any opponent's card to swap
+                           </p>
+                           {swapSourceCardIndex !== null && (
+                             <p className="text-xs text-green-600 font-medium">
+                               ✓ Your card selected. Now click on opponent's card.
+                             </p>
+                           )}
+                           {swapSourceCardIndex !== null && swapTargetPlayerId && swapTargetCardIndex !== null && (
+                             <p className="text-xs text-green-600 font-medium">
+                               ✓ Both cards selected. Ready to swap!
+                             </p>
+                           )}
+                         </div>
+
+                         {/* Execute Swap Button */}
+                         <div className="flex space-x-1 pt-2">
+                           <button
+                             onClick={handleExecuteSwap}
+                             disabled={swapSourceCardIndex === null || !swapTargetPlayerId || swapTargetCardIndex === null}
+                             className="flex-1 bg-purple-600 text-white py-1 px-2 rounded text-xs hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                           >
+                             Execute Swap
+                           </button>
+                           <button
+                             onClick={handleSkipTrick}
+                             className="flex-1 bg-gray-500 text-white py-1 px-2 rounded text-xs hover:bg-gray-600"
+                           >
+                             Skip
+                           </button>
+                         </div>
+                       </div>
+                     )}
+
+                                         {activeTrick.type === 'spy' && (
+                       <div className="space-y-2">
+                         {/* Instructions */}
+                         <div className="text-center">
+                           <p className="text-xs text-purple-700 mb-2">
+                             Click on any card (yours or opponents') to spy on it
+                           </p>
+                           {spyTargetPlayerId && spyTargetCardIndex !== null && (
+                             <p className="text-xs text-green-600 font-medium">
+                               ✓ Card selected. Ready to spy!
+                             </p>
+                           )}
+                         </div>
+
+                         {/* Execute Spy Button */}
+                         <div className="flex space-x-1 pt-2">
+                           <button
+                             onClick={handleExecuteSpy}
+                             disabled={!spyTargetPlayerId || spyTargetCardIndex === null}
+                             className="flex-1 bg-green-600 text-white py-1 px-2 rounded text-xs hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                           >
+                             Spy on Card
+                           </button>
+                           <button
+                             onClick={handleSkipTrick}
+                             className="flex-1 bg-gray-500 text-white py-1 px-2 rounded text-xs hover:bg-gray-600"
+                           >
+                             Skip
+                           </button>
+                         </div>
+                       </div>
+                     )}
+                  </div>
+                )}
+
+                {/* Pablo Window Display */}
+                {isPabloWindow && currentPlayer?.id === (gameState.lastAction as any)?.playerId && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-2 mb-2">
+                    <h4 className="font-semibold text-red-800 mb-1 text-sm">Pablo Window - {pabloCountdown}s</h4>
+                    <p className="text-xs text-red-700 text-center mb-2">
+                      Call Pablo or skip to end turn
+                    </p>
+                    <div className="space-y-1">
+                      <button
+                        onClick={handleCallPablo}
+                        className="w-full flex items-center justify-center space-x-1 px-3 py-1.5 bg-red-600 text-white rounded text-sm hover:bg-red-700 transition-colors"
+                      >
+                        <SkipForward size={14} />
+                        <span>Call Pablo Now!</span>
+                      </button>
+                      <button
+                        onClick={handleSkipPablo}
+                        className="w-full flex items-center justify-center space-x-1 px-3 py-1.5 bg-gray-600 text-white rounded text-sm hover:bg-gray-700 transition-colors"
+                      >
+                        <SkipForward size={14} />
+                        <span>Skip Pablo - End Turn</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
             </div>
           </div>
 
@@ -1320,18 +1516,38 @@ export function GamePage() {
         </div>
       </div>
 
-      {/* Trick Card Modal */}
-      {showTrickCardModal && activeTrick && (
-        <TrickCardModal
-          activeTrick={activeTrick}
-          players={gameState.players}
-          currentPlayerId={currentPlayer?.id || ''}
-          onExecuteSwap={handleExecuteSwap}
-          onExecuteSpy={handleExecuteSpy}
-          onSkipTrick={handleSkipTrick}
-          onClose={handleCloseTrickModal}
-        />
-      )}
+             {/* Incoming Card Display */}
+       {showIncomingCard && incomingCard && (
+         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+             <h3 className="text-lg font-bold mb-4 text-center">
+               {activeTrick?.type === 'spy' ? 'Spied Card' : 'Incoming Card'}
+             </h3>
+             <div className="text-center mb-4">
+               <div className={`inline-block rounded-lg p-4 ${
+                 activeTrick?.type === 'spy' 
+                   ? 'bg-blue-100 border-2 border-blue-500' 
+                   : 'bg-red-100 border-2 border-red-500'
+               }`}>
+                 <div className={`font-bold text-xl ${
+                   activeTrick?.type === 'spy' ? 'text-blue-600' : 'text-red-600'
+                 }`}>
+                   {incomingCard.rank} {incomingCard.suit === 'hearts' ? '♥' :
+                                        incomingCard.suit === 'diamonds' ? '♦' :
+                                        incomingCard.suit === 'clubs' ? '♣' :
+                                        incomingCard.suit === 'spades' ? '♠' : '?'}
+                 </div>
+               </div>
+             </div>
+             <p className="text-center text-gray-600">
+               {activeTrick?.type === 'spy' 
+                 ? 'You spied on this card. It will be hidden in 2 seconds...' 
+                 : 'This card will be swapped in 2 seconds...'}
+             </p>
+           </div>
+         </div>
+       )}
+      
     </div>
   );
 }

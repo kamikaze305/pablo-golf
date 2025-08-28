@@ -85,8 +85,8 @@ export function PlayingCard({
     );
   }
 
-  // Handle joker cards
-  if (card.isJoker) {
+  // Handle joker cards - but respect isHidden prop
+  if (card.isJoker && !isHidden) {
     return (
       <div className={cardClasses} onClick={onClick}>
         {/* Joker card - show joker emoji in center */}

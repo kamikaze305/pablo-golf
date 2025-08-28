@@ -105,7 +105,13 @@ export class PabloGameEngine {
               if (playerPeekedCards.includes(index)) {
                 return card; // Show peeked cards
               } else {
-                return { ...card, suit: 'hidden', rank: 'hidden' as any }; // Hide unpeeked cards
+                return { 
+                  ...card, 
+                  originalSuit: card.suit,
+                  originalRank: card.rank,
+                  suit: 'hidden', 
+                  rank: 'hidden' as any 
+                }; // Hide unpeeked cards
               }
             })
           };
@@ -113,7 +119,13 @@ export class PabloGameEngine {
           // For other players, hide all cards
           return {
             ...p,
-            cards: p.cards.map(card => card ? { ...card, suit: 'hidden', rank: 'hidden' as any } : null)
+            cards: p.cards.map(card => card ? { 
+              ...card, 
+              originalSuit: card.suit,
+              originalRank: card.rank,
+              suit: 'hidden', 
+              rank: 'hidden' as any 
+            } : null)
           };
         }
       });
@@ -126,7 +138,13 @@ export class PabloGameEngine {
         // For current player, hide all cards (they must memorize)
         return {
           ...p,
-          cards: p.cards.map(card => card ? { ...card, suit: 'hidden', rank: 'hidden' as any } : null)
+          cards: p.cards.map(card => card ? { 
+            ...card, 
+            originalSuit: card.suit,
+            originalRank: card.rank,
+            suit: 'hidden', 
+            rank: 'hidden' as any 
+          } : null)
         };
       } else {
         // For other players, always hide cards unless they're disconnected
@@ -135,7 +153,13 @@ export class PabloGameEngine {
         }
         return {
           ...p,
-          cards: p.cards.map(card => card ? { ...card, suit: 'hidden', rank: 'hidden' as any } : null)
+          cards: p.cards.map(card => card ? { 
+            ...card, 
+            originalSuit: card.suit,
+            originalRank: card.rank,
+            suit: 'hidden', 
+            rank: 'hidden' as any 
+          } : null)
         };
       }
     });
@@ -144,13 +168,39 @@ export class PabloGameEngine {
   }
 
   startRound(): GameState {
-    if (this.state.gamePhase !== 'waiting') {
-      throw new Error('Cannot start round: game is not in waiting phase');
+    if (this.state.gamePhase !== 'waiting' && this.state.gamePhase !== 'roundEnd') {
+      throw new Error('Cannot start round: game is not in waiting or roundEnd phase');
     }
 
     // Check minimum player requirement
     if (this.state.players.length < 2) {
       throw new Error('Cannot start round: minimum 2 players required');
+    }
+
+    // If starting from roundEnd phase, reset the game state first
+    if (this.state.gamePhase === 'roundEnd') {
+      const resetPlayers = this.state.players.map(player => ({
+        ...player,
+        cards: [null, null, null, null], // Clear cards
+        roundScore: 0 // Reset round score
+      }));
+      
+      this.state = {
+        ...this.state,
+        players: resetPlayers,
+        gamePhase: 'waiting',
+        currentPlayerIndex: 0, // Reset to first player
+        stock: [], // Clear stock
+        discard: [], // Clear discard
+        lastAction: undefined, // Clear last action
+        pabloCalled: false, // Reset Pablo state
+        pabloCallerId: undefined,
+        finalRoundStarted: false,
+        finalRoundPlayerIndex: 0,
+        playersWhoHadFinalTurn: [],
+        peekedCards: undefined,
+        readyPlayers: []
+      };
     }
 
     // Generate new shuffle seed for each round to ensure different shuffles
@@ -299,6 +349,16 @@ export class PabloGameEngine {
       newDiscard.push(replacedCard);
     }
 
+    // Check if the replaced card is a trick card and special tricks are enabled
+    let newLastAction: GameAction = { type: 'pabloWindow', playerId: action.playerId };
+    let newActiveTrick = this.state.activeTrick;
+    
+    if (this.state.settings.specialTricksEnabled && replacedCard && isTrickCard(replacedCard.rank)) {
+      // Activate trick card
+      newActiveTrick = createTrickCardState(action.playerId, replacedCard.rank);
+      newLastAction = { type: 'activateTrick', playerId: action.playerId, cardRank: replacedCard.rank };
+    }
+
     // Remove drawn card from source
     let newStock = [...this.state.stock];
     if (lastAction.source === 'stock') {
@@ -316,13 +376,16 @@ export class PabloGameEngine {
       // Move to next player
       const nextPlayerIndex = (this.state.currentPlayerIndex + 1) % this.state.players.length;
       
+      const newGamePhase = newLastAction.type === 'activateTrick' ? 'trickActive' : 'playing';
       this.state = {
         ...this.state,
         players: newPlayers,
         stock: newStock,
         discard: newDiscard,
         currentPlayerIndex: nextPlayerIndex,
-        lastAction: undefined, // Clear lastAction so next player can draw
+        lastAction: newLastAction,
+        activeTrick: newActiveTrick,
+        gamePhase: newGamePhase,
         playersWhoHadFinalTurn: updatedFinalTurnPlayers
       };
 
@@ -332,13 +395,16 @@ export class PabloGameEngine {
         return this.endRound();
       }
     } else {
-      // Normal round - stay in Pablo window
+      // Normal round - stay in Pablo window or trick activation
+      const newGamePhase = newLastAction.type === 'activateTrick' ? 'trickActive' : 'playing';
       this.state = {
         ...this.state,
         players: newPlayers,
         stock: newStock,
         discard: newDiscard,
-        lastAction: { type: 'pabloWindow', playerId: action.playerId } // Start Pablo window
+        lastAction: newLastAction,
+        activeTrick: newActiveTrick,
+        gamePhase: newGamePhase
       };
     }
 
@@ -398,11 +464,13 @@ export class PabloGameEngine {
       // Move to next player
       const nextPlayerIndex = (this.state.currentPlayerIndex + 1) % this.state.players.length;
       
+      const newGamePhase = newLastAction.type === 'activateTrick' ? 'trickActive' : 'playing';
       this.state = {
         ...this.state,
         stock: newStock,
         discard: newDiscard,
         currentPlayerIndex: nextPlayerIndex,
+        gamePhase: newGamePhase,
         lastAction: newLastAction,
         activeTrick: newActiveTrick,
         playersWhoHadFinalTurn: updatedFinalTurnPlayers
@@ -415,10 +483,12 @@ export class PabloGameEngine {
       }
     } else {
       // Normal round - stay in Pablo window or trick activation
+      const newGamePhase = newLastAction.type === 'activateTrick' ? 'trickActive' : 'playing';
       this.state = {
         ...this.state,
         stock: newStock,
         discard: newDiscard,
+        gamePhase: newGamePhase,
         lastAction: newLastAction,
         activeTrick: newActiveTrick
       };
@@ -645,39 +715,8 @@ export class PabloGameEngine {
       players: newPlayers,
       gamePhase,
       lastAction: { type: 'endRound' },
-      roundEndTimer: 30, // 30 second timer for next round
       roundHistory: [...this.state.roundHistory, roundHistoryEntry]
     };
-
-    // Set a timer to transition to waiting phase after countdown
-    if (gamePhase === 'roundEnd') {
-      setTimeout(() => {
-        // Reset game state for next round
-        const resetPlayers = this.state.players.map(player => ({
-          ...player,
-          cards: [null, null, null, null], // Clear cards
-          roundScore: 0 // Reset round score
-        }));
-        
-        this.state = {
-          ...this.state,
-          players: resetPlayers,
-          gamePhase: 'waiting',
-          roundEndTimer: undefined,
-          currentPlayerIndex: 0, // Reset to first player
-          stock: [], // Clear stock
-          discard: [], // Clear discard
-          lastAction: undefined, // Clear last action
-          pabloCalled: false, // Reset Pablo state
-          pabloCallerId: undefined,
-          finalRoundStarted: false,
-          finalRoundPlayerIndex: 0,
-          playersWhoHadFinalTurn: [],
-          peekedCards: undefined,
-          readyPlayers: []
-        };
-      }, 30000); // 30 seconds
-    }
 
     return this.getState();
   }

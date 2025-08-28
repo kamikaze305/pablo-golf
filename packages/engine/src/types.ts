@@ -6,6 +6,9 @@ export interface Card {
   rank: Rank;
   value: number;
   isJoker: boolean;
+  // Store original card info when hidden
+  originalSuit?: Suit;
+  originalRank?: Rank;
 }
 
 export interface Player {
