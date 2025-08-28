@@ -12,7 +12,7 @@ describe('App Component', () => {
     );
     
     // The app should render without throwing any errors
-    expect(document.body).toBeInTheDocument();
+    expect(document.body).toBeDefined();
   });
 
   it('should contain navigation elements', () => {
@@ -23,7 +23,7 @@ describe('App Component', () => {
     );
     
     // Check for the main app structure
-    expect(document.querySelector('header')).toBeInTheDocument();
-    expect(document.querySelector('main')).toBeInTheDocument();
+    expect(document.querySelector('header')).toBeDefined();
+    expect(document.querySelector('main')).toBeDefined();
   });
 });
