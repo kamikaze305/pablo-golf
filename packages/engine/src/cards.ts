@@ -55,12 +55,5 @@ export function getCardValue(card: Card): number {
   return card.value;
 }
 
-export function isPowerCard(card: Card, settings: GameSettings): boolean {
-  if (card.isJoker) return false;
-  return settings.powerCards[card.rank as keyof typeof settings.powerCards] ?? false;
-}
 
-export function canUsePowerCard(card: Card, settings: GameSettings): boolean {
-  return isPowerCard(card, settings) && settings.powerCards[card.rank as keyof typeof settings.powerCards];
-}
 

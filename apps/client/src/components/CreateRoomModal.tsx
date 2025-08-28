@@ -154,61 +154,7 @@ export function CreateRoomModal() {
               </div>
             </div>
 
-            {/* Power Cards */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium text-gray-900">Power Cards</h3>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm text-gray-700">7 = Swap</label>
-                  <input
-                    type="checkbox"
-                    checked={settings.powerCards['7']}
-                    onChange={(e) => updateSetting('powerCards', {
-                      ...settings.powerCards,
-                      '7': e.target.checked
-                    })}
-                    className="w-4 h-4 text-primary-600"
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <label className="text-sm text-gray-700">8 = Spy</label>
-                  <input
-                    type="checkbox"
-                    checked={settings.powerCards['8']}
-                    onChange={(e) => updateSetting('powerCards', {
-                      ...settings.powerCards,
-                      '8': e.target.checked
-                    })}
-                    className="w-4 h-4 text-primary-600"
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <label className="text-sm text-gray-700">9 Power</label>
-                  <input
-                    type="checkbox"
-                    checked={settings.powerCards['9']}
-                    onChange={(e) => updateSetting('powerCards', {
-                      ...settings.powerCards,
-                      '9': e.target.checked
-                    })}
-                    className="w-4 h-4 text-primary-600"
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <label className="text-sm text-gray-700">10 Power</label>
-                  <input
-                    type="checkbox"
-                    checked={settings.powerCards['10']}
-                    onChange={(e) => updateSetting('powerCards', {
-                      ...settings.powerCards,
-                      '10': e.target.checked
-                    })}
-                    className="w-4 h-4 text-primary-600"
-                  />
-                </div>
-              </div>
-            </div>
+
 
             {/* Table Rules */}
             <div className="space-y-4">

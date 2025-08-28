@@ -32,10 +32,8 @@ export function GamePage() {
   const [showChat, setShowChat] = useState(false);
   const [pabloTimer, setPabloTimer] = useState<number | null>(null);
   const [pabloCountdown, setPabloCountdown] = useState<number>(15);
-  const [roundEndTimer, setRoundEndTimer] = useState<number>(30);
   const [lastReplacedCard, setLastReplacedCard] = useState<{playerId: string, cardIndex: number} | null>(null);
-  const [trickCardTarget, setTrickCardTarget] = useState<{playerIndex: number, cardIndex: number} | null>(null);
-  const [myTrickCardIndex, setMyTrickCardIndex] = useState<number | null>(null);
+
 
   // Calculate game state variables
   const isMyTurn = gameState?.currentPlayerIndex !== undefined && 
@@ -50,13 +48,10 @@ export function GamePage() {
   const isFinalRound = gameState?.finalRoundStarted;
   const pabloCaller = gameState?.pabloCallerId ? gameState.players.find(p => p.id === gameState.pabloCallerId) : null;
 
-  // Add these debug logs
-  console.log('GamePage: Component rendered');
-  console.log('GamePage: isConnected =', isConnected);
-  console.log('GamePage: gameState =', gameState);
-  console.log('GamePage: storeRoomId =', storeRoomId);
-  console.log('GamePage: currentPlayer from store:', useGameStore.getState().currentPlayer);
-  console.log('GamePage: playerId from store:', useGameStore.getState().playerId);
+  // Debug logging (only in development)
+  if (import.meta.env.DEV) {
+    console.log('GamePage: Component rendered');
+  }
 
   // Redirect if not in a room
   useEffect(() => {
@@ -145,41 +140,22 @@ export function GamePage() {
 
 
 
-    // Round end timer
-    useEffect(() => {
-      if (gameState?.gamePhase === 'roundEnd' && gameState?.roundEndTimer !== undefined) {
-        setRoundEndTimer(gameState.roundEndTimer);
-        
-        const interval = setInterval(() => {
-          setRoundEndTimer(prev => {
-            if (prev <= 1) {
-              clearInterval(interval);
-              // Auto-start next round when timer reaches 0
-              if (currentPlayer?.isHost) {
-                console.log('GamePage: Auto-starting next round');
-                executeAction({ type: 'startRound' });
-              }
-              return 0;
-            }
-            return prev - 1;
-          });
-        }, 1000);
-        
-        return () => clearInterval(interval);
-      }
-    }, [gameState?.gamePhase, gameState?.roundEndTimer, currentPlayer?.isHost, executeAction]);
+         // Round end timer - removed auto-start functionality
+     // Timer functionality removed - host now manually starts next round
 
-     // Debug state changes
+     // Debug state changes (only in development)
    useEffect(() => {
-     console.log('GamePage: State change detected:', {
-       currentPlayerIndex: gameState?.currentPlayerIndex,
-       lastAction: gameState?.lastAction,
-       isPabloWindow: gameState?.lastAction?.type === 'pabloWindow',
-       currentPlayerId: currentPlayer?.id,
-       isMyTurn: isMyTurn,
-       canDraw: canDraw,
-       canCallPablo: canCallPablo
-     });
+     if (import.meta.env.DEV) {
+       console.log('GamePage: State change detected:', {
+         currentPlayerIndex: gameState?.currentPlayerIndex,
+         lastAction: gameState?.lastAction,
+         isPabloWindow: gameState?.lastAction?.type === 'pabloWindow',
+         currentPlayerId: currentPlayer?.id,
+         isMyTurn: isMyTurn,
+         canDraw: canDraw,
+         canCallPablo: canCallPablo
+       });
+     }
    }, [gameState?.currentPlayerIndex, gameState?.lastAction, currentPlayer?.id, isMyTurn, canDraw, canCallPablo]);
 
    // Clear selection when it's not the current player's turn
@@ -310,11 +286,7 @@ export function GamePage() {
     }
   };
 
-  const handlePowerCard = (powerType: '7' | '8' | '9' | '10' | 'J' | 'Q', payload?: any) => {
-    if (currentPlayer?.id) {
-      executeAction({ type: 'power', powerType, playerId: currentPlayer.id, payload });
-    }
-  };
+
 
   const handleLeaveRoom = () => {
     leaveRoom();
@@ -334,65 +306,14 @@ export function GamePage() {
     }
   };
 
-  const handleExecuteTrick = () => {
-    if (!gameState?.activeTrick || !currentPlayer?.id) return;
 
-    const { type: trickType } = gameState.activeTrick;
-    
-    if (trickType === '7' && myTrickCardIndex !== null && trickCardTarget) {
-      // Swap trick
-      executeAction({
-        type: 'executeTrick',
-        playerId: currentPlayer.id,
-        trickType: '7',
-        payload: {
-          myCardIndex: myTrickCardIndex,
-          targetPlayerIndex: trickCardTarget.playerIndex,
-          targetCardIndex: trickCardTarget.cardIndex
-        }
-      });
-      
-      // Clear trick state
-      setMyTrickCardIndex(null);
-      setTrickCardTarget(null);
-    } else if (trickType === '8' && trickCardTarget) {
-      // Spy trick
-      executeAction({
-        type: 'executeTrick',
-        playerId: currentPlayer.id,
-        trickType: '8',
-        payload: {
-          playerIndex: trickCardTarget.playerIndex,
-          cardIndex: trickCardTarget.cardIndex
-        }
-      });
-      
-      // Clear trick state
-      setTrickCardTarget(null);
-    }
-  };
 
-  const handleSkipTrick = () => {
-    if (!gameState?.activeTrick || !currentPlayer?.id) return;
-    
-    // Skip the trick and move to next player
-    executeAction({ type: 'pabloWindow', playerId: currentPlayer.id });
-    
-    // Clear trick state
-    setMyTrickCardIndex(null);
-    setTrickCardTarget(null);
-  };
-
-  // Debug logging
-  console.log('GamePage: Turn state - isMyTurn:', isMyTurn, 'canDraw:', canDraw, 'canCallPablo:', canCallPablo, 'isPabloWindow:', isPabloWindow);
-  console.log('GamePage: Game state - phase:', gameState?.gamePhase, 'lastAction:', gameState?.lastAction);
-  console.log('GamePage: Pablo countdown:', pabloCountdown);
-  console.log('GamePage: Pablo window condition check:', {
-    isPabloWindow,
-    currentPlayerId: currentPlayer?.id,
-    lastActionPlayerId: (gameState?.lastAction as any)?.playerId,
-    condition: isPabloWindow && currentPlayer?.id === (gameState?.lastAction as any)?.playerId
-  });
+  // Debug logging (only in development)
+  if (import.meta.env.DEV) {
+    console.log('GamePage: Turn state - isMyTurn:', isMyTurn, 'canDraw:', canDraw, 'canCallPablo:', canCallPablo, 'isPabloWindow:', isPabloWindow);
+    console.log('GamePage: Game state - phase:', gameState?.gamePhase, 'lastAction:', gameState?.lastAction);
+    console.log('GamePage: Pablo countdown:', pabloCountdown);
+  }
 
            if (!gameState) {
       return (
@@ -603,12 +524,25 @@ export function GamePage() {
      return (
        <div className="max-w-7xl mx-auto p-4">
          <div className="bg-white rounded-lg shadow-md p-6">
-           <div className="text-center mb-6">
-             <h1 className="text-3xl font-bold text-gray-900 mb-2">Round {gameState.roundNumber} Complete!</h1>
-             <div className="text-lg text-gray-600 mb-4">
-               Next round starts in <span className="font-bold text-blue-600">{roundEndTimer}</span> seconds
-             </div>
-           </div>
+                       <div className="text-center mb-6">
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">Round {gameState.roundNumber} Complete!</h1>
+              <div className="text-lg text-gray-600 mb-4">
+                {currentPlayer?.isHost ? (
+                  <div className="space-y-2">
+                    <p>Ready to start the next round?</p>
+                    <button
+                      onClick={handleStartRound}
+                      className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold"
+                    >
+                      <Play size={16} className="inline mr-2" />
+                      Start Next Round
+                    </button>
+                  </div>
+                ) : (
+                  <p>Waiting for host to start next round...</p>
+                )}
+              </div>
+            </div>
 
            {/* Round Results */}
            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
@@ -1051,15 +985,30 @@ export function GamePage() {
                   </div>
                 )}
                 
-                {gameState.gamePhase === 'waiting' && (
-                  <button
-                    onClick={handleStartRound}
-                    disabled={!currentPlayer?.isHost}
-                    className="w-full flex items-center justify-center space-x-1 px-3 py-1.5 bg-green-600 text-white rounded text-sm hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <Play size={14} />
-                    <span>Start Round</span>
-                  </button>
+                {gameState.gamePhase === 'waiting' && currentPlayer?.isHost && (
+                  <>
+                    {gameState.players.length < 2 && (
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-2 mb-2">
+                        <p className="text-xs text-yellow-800 text-center">
+                          ⚠️ Need at least 2 players to start the game
+                        </p>
+                      </div>
+                    )}
+                    <button
+                      onClick={handleStartRound}
+                      disabled={gameState.players.length < 2}
+                      className="w-full flex items-center justify-center space-x-1 px-3 py-1.5 bg-green-600 text-white rounded text-sm hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <Play size={14} />
+                      <span>Start Round</span>
+                    </button>
+                  </>
+                )}
+                
+                {gameState.gamePhase === 'waiting' && !currentPlayer?.isHost && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
+                    <p className="text-blue-700 text-sm font-medium">⏳ Waiting for host to start the round...</p>
+                  </div>
                 )}
                 
                 {canDraw && (
@@ -1109,149 +1058,7 @@ export function GamePage() {
                    </div>
                  )}
 
-                 {/* Trick Card Display */}
-                 {gameState.activeTrick && gameState.activeTrick.playerId === currentPlayer?.id && (
-                   <div className="bg-purple-50 border border-purple-200 rounded-lg p-2 mb-2">
-                     <h4 className="font-semibold text-purple-800 mb-1 text-sm">
-                       🎭 {gameState.activeTrick.type === '7' ? 'Swap Trick' : 'Spy Trick'} Activated!
-                     </h4>
-                     <div className="flex items-center justify-center mb-2">
-                       <PlayingCard
-                         card={gameState.activeTrick.card}
-                         className="border-2 border-purple-300 ring-4 ring-purple-400 ring-opacity-75 scale-110"
-                       />
-                     </div>
-                     
-                     {gameState.activeTrick.type === '7' && (
-                       <div className="space-y-2">
-                         <p className="text-xs text-purple-700 text-center">
-                           💫 Select one of your cards and one opponent card to swap
-                         </p>
-                         
-                         {/* My card selection */}
-                         <div className="text-center">
-                           <p className="text-xs text-purple-600 font-medium mb-1">Select your card:</p>
-                           <div className="flex justify-center space-x-1">
-                             {gameState.players.find(p => p.id === currentPlayer.id)?.cards.map((card, index) => (
-                               <div key={index} className="relative">
-                                 <PlayingCard
-                                   card={card}
-                                   isHidden={card && card.suit === 'hidden'}
-                                   className={`cursor-pointer transition-all ${
-                                     myTrickCardIndex === index ? 'ring-4 ring-purple-500 scale-110' : 'hover:scale-105'
-                                   }`}
-                                   onClick={() => setMyTrickCardIndex(index)}
-                                 />
-                                 {myTrickCardIndex === index && (
-                                   <div className="absolute -top-1 -left-1 bg-purple-500 text-white text-xs px-1 rounded-full">
-                                     ✓
-                                   </div>
-                                 )}
-                               </div>
-                             ))}
-                           </div>
-                         </div>
-                         
-                         {/* Target card selection */}
-                         <div className="text-center">
-                           <p className="text-xs text-purple-600 font-medium mb-1">Select opponent card:</p>
-                           <div className="grid grid-cols-2 md:grid-cols-3 gap-1">
-                             {gameState.players.map((player, playerIndex) => {
-                               if (player.id === currentPlayer.id) return null;
-                               return (
-                                 <div key={player.id} className="text-center">
-                                   <p className="text-xs text-gray-600 mb-1">{player.name}</p>
-                                   <div className="grid grid-cols-2 gap-1">
-                                     {player.cards.map((card, cardIndex) => (
-                                       <div key={cardIndex} className="relative">
-                                         <PlayingCard
-                                           card={card}
-                                           isHidden={card && card.suit === 'hidden'}
-                                           className={`cursor-pointer transition-all ${
-                                             trickCardTarget?.playerIndex === playerIndex && trickCardTarget?.cardIndex === cardIndex
-                                               ? 'ring-4 ring-purple-500 scale-110'
-                                               : 'hover:scale-105'
-                                           }`}
-                                           onClick={() => setTrickCardTarget({ playerIndex, cardIndex })}
-                                         />
-                                         {trickCardTarget?.playerIndex === playerIndex && trickCardTarget?.cardIndex === cardIndex && (
-                                           <div className="absolute -top-1 -right-1 bg-purple-500 text-white text-xs px-1 rounded-full">
-                                             ✓
-                                           </div>
-                                         )}
-                                       </div>
-                                     ))}
-                                   </div>
-                                 </div>
-                               );
-                             })}
-                           </div>
-                         </div>
-                       </div>
-                     )}
-                     
-                     {gameState.activeTrick.type === '8' && (
-                       <div className="space-y-2">
-                         <p className="text-xs text-purple-700 text-center">
-                           👁️ Select any card to spy on (yours or opponent's)
-                         </p>
-                         
-                         {/* Target card selection for spy */}
-                         <div className="text-center">
-                           <p className="text-xs text-purple-600 font-medium mb-1">Select card to spy:</p>
-                           <div className="grid grid-cols-2 md:grid-cols-3 gap-1">
-                             {gameState.players.map((player, playerIndex) => (
-                               <div key={player.id} className="text-center">
-                                 <p className="text-xs text-gray-600 mb-1">{player.name}</p>
-                                 <div className="grid grid-cols-2 gap-1">
-                                   {player.cards.map((card, cardIndex) => (
-                                     <div key={cardIndex} className="relative">
-                                       <PlayingCard
-                                         card={card}
-                                         isHidden={card && card.suit === 'hidden'}
-                                         className={`cursor-pointer transition-all ${
-                                           trickCardTarget?.playerIndex === playerIndex && trickCardTarget?.cardIndex === cardIndex
-                                             ? 'ring-4 ring-purple-500 scale-110'
-                                             : 'hover:scale-105'
-                                         }`}
-                                         onClick={() => setTrickCardTarget({ playerIndex, cardIndex })}
-                                       />
-                                       {trickCardTarget?.playerIndex === playerIndex && trickCardTarget?.cardIndex === cardIndex && (
-                                         <div className="absolute -top-1 -right-1 bg-purple-500 text-white text-xs px-1 rounded-full">
-                                           ✓
-                                         </div>
-                                       )}
-                                     </div>
-                                   ))}
-                                 </div>
-                               </div>
-                             ))}
-                           </div>
-                         </div>
-                       </div>
-                     )}
-                     
-                     {/* Trick action buttons */}
-                     <div className="flex space-x-2 mt-3">
-                       <button
-                         onClick={handleExecuteTrick}
-                         disabled={
-                           (gameState.activeTrick.type === '7' && (myTrickCardIndex === null || !trickCardTarget)) ||
-                           (gameState.activeTrick.type === '8' && !trickCardTarget)
-                         }
-                         className="flex-1 px-3 py-2 bg-purple-600 text-white rounded text-sm hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-                       >
-                         {gameState.activeTrick.type === '7' ? 'Execute Swap' : 'Execute Spy'}
-                       </button>
-                       <button
-                         onClick={handleSkipTrick}
-                         className="px-3 py-2 bg-gray-600 text-white rounded text-sm hover:bg-gray-700 transition-colors"
-                       >
-                         Skip Trick
-                       </button>
-                     </div>
-                   </div>
-                 )}
+
 
                              {canReplace && (
                  <button
@@ -1312,26 +1119,7 @@ export function GamePage() {
             </div>
           </div>
 
-                     {/* Power Cards */}
-           <div className="bg-white rounded-lg shadow-md p-3">
-             <h3 className="font-semibold mb-2 text-sm">Power Cards</h3>
-             <div className="space-y-1">
-               <button
-                 onClick={() => handlePowerCard('7')}
-                 disabled={!isMyTurn}
-                 className="w-full px-2 py-1 bg-yellow-100 text-yellow-800 rounded border border-yellow-300 hover:bg-yellow-200 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors text-sm"
-               >
-                 7 - Swap Cards
-               </button>
-               <button
-                 onClick={() => handlePowerCard('8')}
-                 disabled={!isMyTurn}
-                 className="w-full px-2 py-1 bg-blue-100 text-blue-800 rounded border border-blue-300 hover:bg-blue-200 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors text-sm"
-               >
-                 8 - Spy on Cards
-               </button>
-             </div>
-           </div>
+                     
 
                      {/* Chat */}
            <div className="bg-white rounded-lg shadow-md p-3">

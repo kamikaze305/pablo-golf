@@ -26,14 +26,7 @@ export interface GameSettings {
     Q: number;
     K: number;
   };
-  powerCards: {
-    '7': boolean; // Swap
-    '8': boolean; // Spy
-    '9': boolean; // Optional
-    '10': boolean; // Optional
-    'J': boolean; // Optional
-    'Q': boolean; // Optional
-  };
+
   matchingRule: boolean;
   targetScore: number;
   revealOnDisconnect: boolean;
@@ -75,19 +68,14 @@ export interface GameState {
   roundHistory: RoundHistory[];
   peekedCards?: { [playerId: string]: number[] };
   readyPlayers?: string[]; // Track which players have clicked ready
-  activeTrick?: {
-    type: '7' | '8';
-    playerId: string;
-    card: Card;
-    activated: boolean;
-  };
+
 }
 
 export type GameAction = 
   | { type: 'draw'; source: 'stock' | 'discard'; playerId: string; card?: Card }
   | { type: 'replace'; playerId: string; cardIndex: number; card?: Card }
   | { type: 'discard'; playerId: string }
-  | { type: 'power'; playerId: string; powerType: '7' | '8' | '9' | '10' | 'J' | 'Q'; payload?: any }
+
   | { type: 'callPablo'; playerId: string }
   | { type: 'pabloWindow'; playerId: string }
   | { type: 'peekCard'; playerId: string; cardIndex: number }
@@ -96,8 +84,7 @@ export type GameAction =
   | { type: 'endRound' }
   | { type: 'endGame'; playerId: string }
   | { type: 'resetGame' }
-  | { type: 'activateTrick'; playerId: string; trickType: '7' | '8'; card: Card }
-  | { type: 'executeTrick'; playerId: string; trickType: '7' | '8'; payload: any };
+
 
 export interface GameResult {
   playerScores: { [playerId: string]: number };
@@ -106,11 +93,7 @@ export interface GameResult {
   pabloBonus?: { playerId: string; bonus: number };
 }
 
-export interface PowerCardEffect {
-  type: '7' | '8' | '9' | '10' | 'J' | 'Q';
-  description: string;
-  execute: (gameState: GameState, playerId: string, payload?: any) => GameState;
-}
+
 
 export interface RNG {
   seed: number;

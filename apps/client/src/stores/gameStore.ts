@@ -341,12 +341,7 @@ export const useGameStore = create<GameStore>()(
         case 'discard':
           socket.emit('turn:discard');
           break;
-        case 'power':
-          socket.emit('turn:playPower', { 
-            powerType: action.powerType, 
-            payload: action.payload 
-          });
-          break;
+        
         case 'callPablo':
           socket.emit('turn:callPablo');
           break;

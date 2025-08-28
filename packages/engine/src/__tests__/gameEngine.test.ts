@@ -180,39 +180,7 @@ describe('PabloGameEngine', () => {
     });
   });
 
-  describe('Power cards', () => {
-    beforeEach(() => {
-      engine.executeAction({ type: 'startRound' });
-    });
 
-    it('should allow using power card 7 (swap)', () => {
-      const state = engine.executeAction({
-        type: 'power',
-        playerId: 'player1',
-        powerType: '7',
-        payload: { playerIndex: 1, cardIndex: 0, myCardIndex: 0 }
-      });
-      
-      expect(state.lastAction?.type).toBe('power');
-      expect(state.lastAction?.powerType).toBe('7');
-    });
-
-    it('should not allow using disabled power cards', () => {
-      // Disable power card 7
-      settings.powerCards['7'] = false;
-      engine = new PabloGameEngine('test-room', settings, players);
-      engine.executeAction({ type: 'startRound' });
-      
-      expect(() => {
-        engine.executeAction({
-          type: 'power',
-          playerId: 'player1',
-          powerType: '7',
-          payload: { playerIndex: 1, cardIndex: 0, myCardIndex: 0 }
-        });
-      }).toThrow('Power card 7 is not enabled');
-    });
-  });
 
   describe('Ending rounds', () => {
     beforeEach(() => {

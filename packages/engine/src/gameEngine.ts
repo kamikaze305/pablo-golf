@@ -1,7 +1,7 @@
 import { GameState, GameAction, GameResult, Player, RoomSettings, Card, RoundHistory } from './types.js';
-import { createDeck, getCardValue, isPowerCard } from './cards.js';
+import { createDeck, getCardValue } from './cards.js';
 import { createRNG } from './rng.js';
-import { executePowerCard, activateTrickCard, executeTrickCard } from './powerCards.js';
+
 
 export class PabloGameEngine {
   private state: GameState;
@@ -144,6 +144,11 @@ export class PabloGameEngine {
       throw new Error('Cannot start round: game is not in waiting phase');
     }
 
+    // Check minimum player requirement
+    if (this.state.players.length < 2) {
+      throw new Error('Cannot start round: minimum 2 players required');
+    }
+
     // Generate new shuffle seed for each round to ensure different shuffles
     const newShuffleSeed = Math.floor(Math.random() * 0x100000000);
     const rng = createRNG(newShuffleSeed);
@@ -185,8 +190,6 @@ export class PabloGameEngine {
         return this.handleReplace(action);
       case 'discard':
         return this.handleDiscard(action);
-      case 'power':
-        return this.handlePower(action);
       case 'callPablo':
         return this.handleCallPablo(action);
       case 'pabloWindow':
@@ -203,10 +206,6 @@ export class PabloGameEngine {
         return this.endGame(action);
       case 'resetGame':
         return this.resetGame();
-      case 'activateTrick':
-        return this.handleActivateTrick(action);
-      case 'executeTrick':
-        return this.handleExecuteTrick(action);
       default:
         throw new Error(`Unknown action type: ${(action as any).type}`);
     }
@@ -365,13 +364,8 @@ export class PabloGameEngine {
     // Add drawn card to discard pile
     newDiscard.push(drawnCard);
 
-    // Check if this is a trick card (7 or 8) drawn from stock
+    // Set last action to pablo window
     let newLastAction: GameAction = { type: 'pabloWindow', playerId: action.playerId };
-    if (lastAction.source === 'stock' && (drawnCard.rank === '7' || drawnCard.rank === '8')) {
-      // This is a trick card - activate it
-      this.state = activateTrickCard(this.state, action.playerId, drawnCard.rank as '7' | '8', drawnCard);
-      newLastAction = { type: 'activateTrick', playerId: action.playerId, trickType: drawnCard.rank as '7' | '8', card: drawnCard };
-    }
 
     // Check if this is final round - if so, end turn immediately
     if (this.state.finalRoundStarted) {
@@ -474,24 +468,7 @@ export class PabloGameEngine {
     return this.getState();
   }
 
-  private handlePower(action: Extract<GameAction, { type: 'power' }>): GameState {
-    if (this.state.gamePhase !== 'playing') {
-      throw new Error('Cannot use power card: game is not in playing phase');
-    }
 
-    const currentPlayer = this.state.players[this.state.currentPlayerIndex];
-    if (currentPlayer.id !== action.playerId) {
-      throw new Error('Not your turn');
-    }
-
-    // Check if power card is enabled in settings
-    if (!this.state.settings.powerCards[action.powerType]) {
-      throw new Error(`Power card ${action.powerType} is not enabled`);
-    }
-
-    this.state = executePowerCard(this.state, action.playerId, action.powerType, action.payload);
-    return this.getState();
-  }
 
   private handlePeekCard(action: Extract<GameAction, { type: 'peekCard' }>): GameState {
     if (this.state.gamePhase !== 'peeking') {
@@ -599,14 +576,25 @@ export class PabloGameEngine {
     let pabloBonus: { playerId: string; bonus: number } | undefined;
     if (this.state.pabloCalled && this.state.pabloCallerId) {
       const callerScore = playerScores[this.state.pabloCallerId];
-      if (this.state.pabloCallerId === lowestPlayerId) {
-        // Caller has lowest score: -10 bonus
+      
+      // Check for ties - find all players with the lowest score
+      const lowestScore = Math.min(...Object.values(playerScores));
+      const playersWithLowestScore = Object.entries(playerScores)
+        .filter(([_, score]) => score === lowestScore)
+        .map(([playerId, _]) => playerId);
+      
+      // If there's a tie for lowest score, no one gets a bonus
+      if (playersWithLowestScore.length > 1) {
+        // Tie situation - no bonus, everyone keeps their original score
+        pabloBonus = { playerId: this.state.pabloCallerId, bonus: 0 };
+      } else if (this.state.pabloCallerId === lowestPlayerId) {
+        // Caller has unique lowest score: set total score to -10
         pabloBonus = { playerId: this.state.pabloCallerId, bonus: -10 };
-        roundDeltas[this.state.pabloCallerId] -= 10;
+        roundDeltas[this.state.pabloCallerId] = -10; // Set to -10 total, not subtract 10
       } else {
-        // Caller doesn't have lowest: add penalty equal to highest score
-        const highestScore = Math.max(...Object.values(playerScores));
-        roundDeltas[this.state.pabloCallerId] += highestScore;
+        // Caller doesn't have lowest: add penalty equal to the lowest player's score
+        const lowestScore = Math.min(...Object.values(playerScores));
+        roundDeltas[this.state.pabloCallerId] += lowestScore;
       }
     }
 
@@ -811,44 +799,6 @@ export class PabloGameEngine {
     return this.getState();
   }
 
-  private handleActivateTrick(action: Extract<GameAction, { type: 'activateTrick' }>): GameState {
-    if (this.state.gamePhase !== 'playing') {
-      throw new Error('Cannot activate trick: game is not in playing phase');
-    }
 
-    const currentPlayer = this.state.players[this.state.currentPlayerIndex];
-    if (currentPlayer.id !== action.playerId) {
-      throw new Error('Not your turn');
-    }
-
-    // Check if the card is a valid trick card (7 or 8)
-    if (action.trickType !== '7' && action.trickType !== '8') {
-      throw new Error('Invalid trick card type');
-    }
-
-    // Activate the trick
-    this.state = activateTrickCard(this.state, action.playerId, action.trickType, action.card);
-    return this.getState();
-  }
-
-  private handleExecuteTrick(action: Extract<GameAction, { type: 'executeTrick' }>): GameState {
-    if (this.state.gamePhase !== 'playing') {
-      throw new Error('Cannot execute trick: game is not in playing phase');
-    }
-
-    const currentPlayer = this.state.players[this.state.currentPlayerIndex];
-    if (currentPlayer.id !== action.playerId) {
-      throw new Error('Not your turn');
-    }
-
-    // Check if there's an active trick
-    if (!this.state.activeTrick || this.state.activeTrick.playerId !== action.playerId) {
-      throw new Error('No active trick to execute');
-    }
-
-    // Execute the trick
-    this.state = executeTrickCard(this.state, action.playerId, action.trickType, action.payload);
-    return this.getState();
-  }
 }
 

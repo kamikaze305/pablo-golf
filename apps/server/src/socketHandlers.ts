@@ -226,28 +226,7 @@ export function setupSocketHandlers(io: Server, gameManager: GameManager, qaMana
       }
     });
 
-    socket.on('turn:playPower', (data: { powerType: '7' | '8' | '9' | '10' | 'J' | 'Q'; payload?: any }) => {
-      const { playerId, roomId } = socket.data as SocketData;
-      if (!playerId || !roomId) return;
 
-      try {
-        const action: GameAction = {
-          type: 'power',
-          playerId,
-          powerType: data.powerType,
-          payload: data.payload
-        };
-
-        const newState = gameManager.executeGameAction(roomId, action);
-        if (newState) {
-          socket.emit('turn:result', { action, state: newState });
-          broadcastGameStateToRoom(roomId);
-        }
-      } catch (error) {
-        console.error('Power card error:', error);
-        socket.emit('error', { message: error instanceof Error ? error.message : 'Failed to use power card' });
-      }
-    });
 
     socket.on('turn:callPablo', () => {
       const { playerId, roomId } = socket.data as SocketData;

@@ -116,13 +116,7 @@ export function HomePage() {
               then replace one of your cards. Call "Pablo" when you think you have the lowest score.
             </p>
           </div>
-          <div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Power Cards</h3>
-            <p className="text-gray-600">
-              7 = Swap cards with any opponent. 8 = Spy peek at any card. 
-              Only usable if drawn from stock and immediately discarded.
-            </p>
-          </div>
+
           <div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">Scoring</h3>
             <p className="text-gray-600">
