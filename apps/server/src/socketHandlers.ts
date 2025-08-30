@@ -93,6 +93,37 @@ export function setupSocketHandlers(io: Server, gameManager: GameManager): void 
       }
     });
 
+    // Room reconnection
+    socket.on('room:reconnect', async (data: { roomKey: string; playerId: string; playerName: string }, callback: (response: any) => void) => {
+      try {
+        const { roomKey, playerId, playerName } = data;
+        const roomId = gameManager.reconnectPlayer(roomKey, playerId, playerName);
+        
+        socket.data = { playerId, roomId };
+        socket.join(roomId);
+        gameManager.addSocketToRoom(roomId, playerId, socket);
+
+        // Send reconnection confirmation via callback
+        callback({ roomId });
+
+        // Send player-specific game state to the reconnecting player
+        const playerGameState = gameManager.getGameState(roomId, playerId);
+        console.log(`Server: Sending filtered state to reconnecting player ${playerId}, state has ${playerGameState?.players.length} players`);
+        if (playerGameState) {
+          socket.emit('state:patch', playerGameState);
+        }
+
+        // Broadcast to other players in the room (excluding the reconnecting player)
+        console.log(`Server: Broadcasting updates to other players in room ${roomId}`);
+        broadcastGameStateToRoom(roomId, playerId);
+
+        console.log(`Player ${playerName} (ID: ${playerId}) reconnected to room ${roomId}`);
+      } catch (error) {
+        console.error('Room reconnection error:', error);
+        callback({ error: error instanceof Error ? error.message : 'Failed to reconnect to room' });
+      }
+    });
+
     // Room leaving
     socket.on('room:leave', () => {
       const { playerId, roomId } = socket.data as SocketData;

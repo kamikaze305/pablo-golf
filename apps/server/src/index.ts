@@ -74,7 +74,7 @@ server.listen(PORT, () => {
 
   console.log(`🌐 Origin: ${process.env.ORIGIN || 'http://localhost:5173'}`);
   console.log(`🎮 Max Rooms: ${process.env.MAX_ROOMS || 50}`);
-  console.log(`👥 Max Players per Room: ${process.env.MAX_PLAYERS_PER_ROOM || 5}`);
+  console.log(`👥 Max Players per Room: ${process.env.MAX_PLAYERS_PER_ROOM || 4}`);
   console.log(`🔌 Max Connections: ${process.env.MAX_CONNECTIONS || 300}`);
 });
 

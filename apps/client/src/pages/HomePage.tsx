@@ -5,6 +5,7 @@ import { CreateRoomModal } from '../components/CreateRoomModal';
 import { JoinRoomModal } from '../components/JoinRoomModal';
 import { ErrorMessage } from '../components/ErrorMessage';
 
+
 export function HomePage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -38,17 +39,21 @@ export function HomePage() {
   return (
     <div className="max-w-4xl mx-auto">
       {/* Hero Section */}
-      <div className="text-center mb-12">
-        <h1 className="text-4xl font-bold text-gray-900 mb-4">
-          Welcome to Pablo Golf
+      <div className="text-center mb-6">
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          Welcome to Pablo! ♠
         </h1>
-        <p className="text-xl text-gray-600 mb-8">
-          A 4-card Golf variant with multiplayer support
+        
+        <p className="text-base text-gray-600 mb-2">
+          "In Pablo, the only thing higher than your score… is your regret."
+        </p>
+        <p className="text-base text-gray-600 mb-2">
+          "Where risk makes legends, and bad timing makes memes." 😏
         </p>
         
         {!isConnected && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-8">
-            <p className="text-yellow-800">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+            <p className="text-yellow-800 text-sm">
               Connecting to server...
             </p>
           </div>
@@ -96,13 +101,13 @@ export function HomePage() {
       )}
 
       {/* Game Options */}
-      <div className="grid md:grid-cols-2 gap-8 mb-12">
+      <div className="grid md:grid-cols-2 gap-6 mb-6">
         {/* Create Room */}
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-2xl font-semibold text-gray-900 mb-4">
+        <div className="bg-white rounded-lg shadow-md p-4">
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">
             Create a Room
           </h2>
-          <p className="text-gray-600 mb-6">
+          <p className="text-gray-600 mb-4 text-sm">
             Host a new game and invite friends to join. Customize game rules and settings.
           </p>
           <button
@@ -115,11 +120,11 @@ export function HomePage() {
         </div>
 
         {/* Join Room */}
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-2xl font-semibold text-gray-900 mb-4">
+        <div className="bg-white rounded-lg shadow-md p-4">
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">
             Join a Room
           </h2>
-          <p className="text-gray-600 mb-6">
+          <p className="text-gray-600 mb-4 text-sm">
             Enter a room key to join an existing game. You'll need the key from the host.
           </p>
           <button
@@ -132,45 +137,7 @@ export function HomePage() {
         </div>
       </div>
 
-      {/* Game Rules */}
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-2xl font-semibold text-gray-900 mb-4">
-          How to Play
-        </h2>
-        <div className="grid md:grid-cols-2 gap-6">
-          <div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Objective</h3>
-            <p className="text-gray-600">
-              Get the lowest score by collecting cards with the lowest values. 
-              Aces = 1, Number cards = face value, Face cards = 10, Jokers = -5.
-            </p>
-          </div>
-          <div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Gameplay</h3>
-            <p className="text-gray-600">
-              Each player has 4 cards in a 2×2 grid. Draw from stock or discard, 
-              then replace one of your cards. Call "Pablo" when you think you have the lowest score.
-            </p>
-          </div>
 
-          <div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Scoring</h3>
-            <p className="text-gray-600">
-              Sum your card values. If Pablo caller has lowest score, they get -10 bonus. 
-              If not, they add penalty equal to the highest score. Game ends when someone reaches 100.
-            </p>
-          </div>
-
-          <div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Special Trick Cards</h3>
-            <p className="text-gray-600">
-              <strong>Card 7 (Swap):</strong> Swap one of your cards with any card from another player's area. 
-              You can look at the incoming card before placing it.<br/><br/>
-              <strong>Card 8 (Spy):</strong> Look at any card in your own or another player's area, then put it back immediately.
-            </p>
-          </div>
-        </div>
-      </div>
 
              {/* Modals */}
        {showCreateRoomModal && <CreateRoomModal />}

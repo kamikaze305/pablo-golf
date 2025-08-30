@@ -3,8 +3,6 @@ import React, { createContext, useContext, useState, useEffect, useRef, useCallb
 interface MusicContextType {
   isPlaying: boolean;
   toggleMusic: () => void;
-  volume: number;
-  setVolume: (volume: number) => void;
   ensureMusicPlaying: () => Promise<void>;
   musicStatus: 'loading' | 'ready' | 'playing' | 'paused' | 'error';
 }
@@ -13,8 +11,7 @@ const MusicContext = createContext<MusicContextType | undefined>(undefined);
 
 export function MusicProvider({ children }: { children: React.ReactNode }) {
   const [isPlaying, setIsPlaying] = useState(false);
-  const [volume, setVolume] = useState(0.5);
-  const [musicStatus, setMusicStatus] = useState<'loading' | 'ready' | 'playing' | 'paused' | 'error'>('loading');
+  const [musicStatus, setMusicStatus] = useState<'loading' | 'ready' | 'playing' | 'paused' | 'error'>('paused');
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
@@ -63,7 +60,7 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
         const audioUrl = URL.createObjectURL(audioBlob);
         audioRef.current = new Audio(audioUrl);
         audioRef.current.loop = true;
-        audioRef.current.volume = volume;
+        audioRef.current.volume = 0.5;
         audioRef.current.preload = 'auto';
 
         // Wait for audio to be loaded before allowing playback
@@ -71,28 +68,10 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
           setMusicStatus('ready');
           console.log('Audio loaded successfully from:', successfulPath);
           
-          // Auto-play music as soon as it's loaded
-          try {
-            if (audioRef.current) {
-              // Resume audio context if needed (for autoplay policies)
-              if (audioRef.current.readyState >= 2) { // HAVE_CURRENT_DATA
-                await audioRef.current.play();
-                setIsPlaying(true);
-                setMusicStatus('playing');
-                console.log('Auto-playing music after successful load');
-                
-                // Save the auto-play state to localStorage
-                localStorage.setItem('pablo_music_state', JSON.stringify({
-                  isPlaying: true,
-                  volume
-                }));
-              }
-            }
-          } catch (error) {
-            console.warn('Auto-play failed, user interaction required:', error);
-            setMusicStatus('paused');
-            // Don't set isPlaying to false here, let user manually start
-          }
+          // Don't auto-play music - start in muted state
+          setMusicStatus('paused');
+          setIsPlaying(false);
+          console.log('Music loaded and ready, but muted by default');
         });
 
         // Add error handling for audio loading
@@ -102,12 +81,24 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
           audioRef.current = null;
         });
 
-        // Load saved music state from localStorage
+        // Load saved music state from localStorage, default to muted
         const savedMusicState = localStorage.getItem('pablo_music_state');
         if (savedMusicState) {
-          const { isPlaying: savedIsPlaying, volume: savedVolume } = JSON.parse(savedMusicState);
-          setIsPlaying(savedIsPlaying);
-          setVolume(savedVolume);
+          try {
+            const { isPlaying: savedIsPlaying } = JSON.parse(savedMusicState);
+            setIsPlaying(savedIsPlaying);
+            if (savedIsPlaying) {
+              setMusicStatus('playing');
+            }
+          } catch (error) {
+            console.warn('Failed to parse saved music state, defaulting to muted');
+            setIsPlaying(false);
+            setMusicStatus('paused');
+          }
+        } else {
+          // Default to muted state
+          setIsPlaying(false);
+          setMusicStatus('paused');
         }
         
       } catch (error) {
@@ -131,11 +122,7 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.volume = volume;
-    }
-  }, [volume]);
+
 
   // Ensure music continues playing during game actions
   useEffect(() => {
@@ -191,8 +178,7 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
 
       // Save state to localStorage
       localStorage.setItem('pablo_music_state', JSON.stringify({
-        isPlaying: !isPlaying,
-        volume
+        isPlaying: !isPlaying
       }));
     } catch (error) {
       console.warn('Failed to toggle audio:', error);
@@ -219,20 +205,10 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const handleVolumeChange = (newVolume: number) => {
-    setVolume(newVolume);
-    localStorage.setItem('pablo_music_state', JSON.stringify({
-      isPlaying,
-      volume: newVolume
-    }));
-  };
-
   return (
     <MusicContext.Provider value={{
       isPlaying,
       toggleMusic,
-      volume,
-      setVolume: handleVolumeChange,
       ensureMusicPlaying,
       musicStatus
     }}>

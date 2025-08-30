@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useGameStore } from '../stores/gameStore';
-import { RoomSettings, Player, DEFAULT_GAME_SETTINGS } from '@pablo/engine';
+import { RoomSettings, Player, DEFAULT_GAME_SETTINGS, GAME_CONFIG } from '@pablo/engine';
 
 function generateRoomKey(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -18,10 +18,11 @@ export function CreateRoomModal() {
   const navigate = useNavigate();
   
   const [playerName, setPlayerName] = useState('');
-  const [settings, setSettings] = useState<RoomSettings>({
+  const [targetScore, setTargetScore] = useState(100);
+  const [settings] = useState<RoomSettings>({
     ...DEFAULT_GAME_SETTINGS,
     roomKey: generateRoomKey(),
-    maxPlayers: 5
+    targetScore: 100
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -33,7 +34,13 @@ export function CreateRoomModal() {
     }
 
     try {
-      console.log('Creating room with settings:', settings);
+      // Update settings with the form values
+      const finalSettings = {
+        ...settings,
+        targetScore
+      };
+      
+      console.log('Creating room with settings:', finalSettings);
       
       const player: Player = {
         id: crypto.randomUUID(),
@@ -46,22 +53,15 @@ export function CreateRoomModal() {
       };
 
       console.log('Creating room with player:', player);
-      await createRoom(settings, player);
+      await createRoom(finalSettings, player);
       console.log('Room created successfully');
       
       // Navigate to the game page
-      navigate(`/game/${settings.roomKey}`);
+      navigate(`/game/${finalSettings.roomKey}`);
     } catch (error) {
       console.error('Room creation error:', error);
       setError(error instanceof Error ? error.message : 'Failed to create room');
     }
-  };
-
-  const updateSetting = <K extends keyof RoomSettings>(
-    key: K, 
-    value: RoomSettings[K]
-  ) => {
-    setSettings((prev: RoomSettings) => ({ ...prev, [key]: value }));
   };
 
   return (
@@ -94,175 +94,22 @@ export function CreateRoomModal() {
               />
             </div>
 
-            {/* Deck & Values */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium text-gray-900">Deck & Values</h3>
-              
-              <div className="flex items-center justify-between">
-                <label className="text-sm text-gray-700">Jokers Enabled</label>
-                <input
-                  type="checkbox"
-                  checked={settings.jokersEnabled}
-                  onChange={(e) => updateSetting('jokersEnabled', e.target.checked)}
-                  className="w-4 h-4 text-primary-600"
-                />
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm text-gray-700 mb-1">Jack Value</label>
-                  <input
-                    type="number"
-                    value={settings.faceCardValues.J}
-                    onChange={(e) => updateSetting('faceCardValues', {
-                      ...settings.faceCardValues,
-                      J: parseInt(e.target.value) || 10
-                    })}
-                    className="input-field"
-                    min="1"
-                    max="20"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-700 mb-1">Queen Value</label>
-                  <input
-                    type="number"
-                    value={settings.faceCardValues.Q}
-                    onChange={(e) => updateSetting('faceCardValues', {
-                      ...settings.faceCardValues,
-                      Q: parseInt(e.target.value) || 10
-                    })}
-                    className="input-field"
-                    min="1"
-                    max="20"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-700 mb-1">King Value</label>
-                  <input
-                    type="number"
-                    value={settings.faceCardValues.K}
-                    onChange={(e) => updateSetting('faceCardValues', {
-                      ...settings.faceCardValues,
-                      K: parseInt(e.target.value) || 10
-                    })}
-                    className="input-field"
-                    min="1"
-                    max="20"
-                  />
-                </div>
-              </div>
-            </div>
-
-
-
-            {/* Table Rules */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium text-gray-900">Table Rules</h3>
-              
-              <div className="flex items-center justify-between">
-                <label className="text-sm text-gray-700">Matching Rule</label>
-                <input
-                  type="checkbox"
-                  checked={settings.matchingRule}
-                  onChange={(e) => updateSetting('matchingRule', e.target.checked)}
-                  className="w-4 h-4 text-primary-600"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm text-gray-700 mb-1">
-                  Target Score to End Game
-                </label>
-                <input
-                  type="number"
-                  value={settings.targetScore}
-                  onChange={(e) => updateSetting('targetScore', parseInt(e.target.value) || 100)}
-                  className="input-field"
-                  min="50"
-                  max="200"
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <label className="text-sm text-gray-700">Reveal on Disconnect</label>
-                <input
-                  type="checkbox"
-                  checked={settings.revealOnDisconnect}
-                  onChange={(e) => updateSetting('revealOnDisconnect', e.target.checked)}
-                  className="w-4 h-4 text-primary-600"
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <label className="text-sm text-gray-700">Special Trick Cards (7 & 8)</label>
-                <input
-                  type="checkbox"
-                  checked={settings.specialTricksEnabled}
-                  onChange={(e) => updateSetting('specialTricksEnabled', e.target.checked)}
-                  className="w-4 h-4 text-primary-600"
-                />
-              </div>
-            </div>
-
-            {/* Access */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium text-gray-900">Access</h3>
-              
-              <div>
-                <label className="block text-sm text-gray-700 mb-1">
-                  Max Players
-                </label>
-                <select
-                  value={settings.maxPlayers}
-                  onChange={(e) => updateSetting('maxPlayers', parseInt(e.target.value))}
-                  className="input-field"
-                >
-                  <option value={2}>2 Players</option>
-                  <option value={3}>3 Players</option>
-                  <option value={4}>4 Players</option>
-                  <option value={5}>5 Players</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm text-gray-700 mb-1">
-                  Join Password (Optional)
-                </label>
-                <input
-                  type="text"
-                  value={settings.joinPassword || ''}
-                  onChange={(e) => updateSetting('joinPassword', e.target.value || undefined)}
-                  className="input-field"
-                  placeholder="Leave empty for no password"
-                  maxLength={20}
-                />
-              </div>
-            </div>
-
-            {/* Persistence */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium text-gray-900">Persistence</h3>
-              
-              <div className="flex items-center justify-between">
-                <label className="text-sm text-gray-700">Scoreboard Carryover</label>
-                <input
-                  type="checkbox"
-                  checked={settings.scoreboardCarryover}
-                  onChange={(e) => updateSetting('scoreboardCarryover', e.target.checked)}
-                  className="w-4 h-4 text-primary-600"
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <label className="text-sm text-gray-700">Autosave Round State</label>
-                <input
-                  type="checkbox"
-                  checked={settings.autosaveRoundState}
-                  onChange={(e) => updateSetting('autosaveRoundState', e.target.checked)}
-                  className="w-4 h-4 text-primary-600"
-                />
-              </div>
+            {/* Target Score */}
+            <div>
+              <label className="block text-sm text-gray-700 mb-2">
+                Target Score to End Game
+              </label>
+              <input
+                type="number"
+                value={targetScore}
+                onChange={(e) => setTargetScore(parseInt(e.target.value) || 100)}
+                className="input-field"
+                min={GAME_CONFIG.MIN_TARGET_SCORE}
+                max={GAME_CONFIG.MAX_TARGET_SCORE}
+              />
+              <p className="text-sm text-gray-500 mt-1">
+                First player to reach this score wins the game
+              </p>
             </div>
 
             {/* Actions */}

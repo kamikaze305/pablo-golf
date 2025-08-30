@@ -1,6 +1,6 @@
 import { Server, Socket } from 'socket.io';
 import { v4 as uuidv4 } from 'uuid';
-import { PabloGameEngine, RoomSettings, Player, GameState, GameAction } from '@pablo/engine';
+import { PabloGameEngine, RoomSettings, Player, GameState, GameAction, GAME_CONFIG } from '@pablo/engine';
 
 interface Room {
   id: string;
@@ -20,9 +20,9 @@ export class GameManager {
   private maxConnections: number;
 
   constructor() {
-    this.maxRooms = parseInt(process.env.MAX_ROOMS || '50');
-    this.maxPlayersPerRoom = parseInt(process.env.MAX_PLAYERS_PER_ROOM || '5');
-    this.maxConnections = parseInt(process.env.MAX_CONNECTIONS || '300');
+    this.maxRooms = parseInt(process.env.MAX_ROOMS || GAME_CONFIG.MAX_ROOMS.toString());
+    this.maxPlayersPerRoom = parseInt(process.env.MAX_PLAYERS_PER_ROOM || GAME_CONFIG.MAX_PLAYERS_PER_ROOM.toString());
+    this.maxConnections = parseInt(process.env.MAX_CONNECTIONS || GAME_CONFIG.MAX_CONNECTIONS.toString());
   }
 
   createRoom(settings: RoomSettings, hostPlayer: Player): string {
@@ -30,11 +30,16 @@ export class GameManager {
       throw new Error('Maximum number of rooms reached');
     }
 
+    console.log(`CreateRoom Debug: Creating room with settings:`, settings);
+    console.log(`CreateRoom Debug: Max players from settings: ${settings.maxPlayers}`);
+
     const roomId = uuidv4();
     const roomSettings: RoomSettings = {
       ...settings,
       roomKey: settings.roomKey || this.generateRoomKey()
     };
+
+    console.log(`CreateRoom Debug: Final room settings:`, roomSettings);
 
     const engine = new PabloGameEngine(roomId, roomSettings, [hostPlayer]);
     const players = new Map<string, Player>();
@@ -55,7 +60,7 @@ export class GameManager {
     this.rooms.set(roomId, room);
     this.playerToRoom.set(hostPlayer.id, roomId);
 
-    console.log(`Room created: ${roomId} by ${hostPlayer.name}`);
+    console.log(`Room created: ${roomId} by ${hostPlayer.name} with max players: ${roomSettings.maxPlayers}`);
     return roomId;
   }
 
@@ -65,11 +70,15 @@ export class GameManager {
       throw new Error('Room not found');
     }
 
+    console.log(`JoinRoom Debug: Room ${roomKey} - Current players: ${room.players.size}, Max players: ${room.settings.maxPlayers}`);
+    console.log(`JoinRoom Debug: Room settings:`, room.settings);
+
     if (room.settings.joinPassword && room.settings.joinPassword !== password) {
       throw new Error('Invalid password');
     }
 
     if (room.players.size >= room.settings.maxPlayers) {
+      console.log(`JoinRoom Debug: Room is full! Players: ${room.players.size}, Max: ${room.settings.maxPlayers}`);
       throw new Error('Room is full');
     }
 
@@ -87,7 +96,35 @@ export class GameManager {
     
     room.lastActivity = new Date();
 
+    console.log(`JoinRoom Debug: Player ${player.name} joined successfully. New player count: ${room.players.size}`);
+
     // Player join logging moved to socketHandlers.ts
+    return room.id;
+  }
+
+  reconnectPlayer(roomKey: string, playerId: string, playerName: string): string {
+    const room = this.findRoomByKey(roomKey);
+    if (!room) {
+      throw new Error('Room not found');
+    }
+
+    // Check if player already exists in the room
+    const existingPlayer = room.players.get(playerId);
+    if (!existingPlayer) {
+      throw new Error('Player not found in room');
+    }
+
+    // Update player connection status and name (in case it changed)
+    existingPlayer.isConnected = true;
+    existingPlayer.name = playerName; // Update name in case it changed
+    room.players.set(playerId, existingPlayer);
+    
+    // Re-add player to playerToRoom mapping
+    this.playerToRoom.set(playerId, room.id);
+    
+    room.lastActivity = new Date();
+
+    console.log(`ReconnectPlayer Debug: Player ${playerName} (${playerId}) reconnected to room ${room.id}`);
     return room.id;
   }
 

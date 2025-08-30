@@ -214,21 +214,33 @@ export const useGameStore = create<GameStore>()(
         // Wait a bit for connection
         await new Promise(resolve => setTimeout(resolve, 1000));
         
-        // Create player object from saved session
-        const player: Player = {
-          id: savedSession.playerId,
-          name: savedSession.playerName,
-          isHost: false, // Will be updated by server
-          isConnected: true,
-          totalScore: 0,
-          roundScore: 0,
-          cards: []
-        };
-        
-        // Try to rejoin the room
-        await get().joinRoom(savedSession.roomKey, player);
-        console.log('GameStore: Auto-reconnect successful');
-        return true;
+        // Try to reconnect to the room using the reconnect method
+        const { socket } = get();
+        if (!socket) {
+          throw new Error('Socket not available for reconnection');
+        }
+
+        return new Promise<boolean>((resolve) => {
+          socket.emit('room:reconnect', { 
+            roomKey: savedSession.roomKey, 
+            playerId: savedSession.playerId, 
+            playerName: savedSession.playerName 
+          }, (response: any) => {
+            if (response.error) {
+              console.error('GameStore: Reconnection failed:', response.error);
+              clearSession();
+              resolve(false);
+            } else {
+              console.log('GameStore: Reconnection successful, setting roomId to:', response.roomId);
+              set({ 
+                roomId: response.roomId, 
+                playerId: savedSession.playerId,
+                isLoading: false
+              });
+              resolve(true);
+            }
+          });
+        });
       } catch (error) {
         console.error('GameStore: Auto-reconnect failed:', error);
         // Clear invalid session
@@ -306,16 +318,21 @@ export const useGameStore = create<GameStore>()(
 
     leaveRoom: () => {
       const { socket } = get();
+      
+      // Always clear session data and local state, regardless of socket status
+      clearSession();
+      set({ 
+        roomId: null, 
+        playerId: null,
+        gameState: null,
+        currentPlayer: null 
+      });
+      
+      // If socket exists, emit leave event
       if (socket) {
         socket.emit('room:leave');
-        // Clear session data
-        clearSession();
-        set({ 
-          roomId: null, 
-          playerId: null,
-          gameState: null,
-          currentPlayer: null 
-        });
+      } else {
+        console.log('GameStore: No socket available, but cleared local state');
       }
     },
 

@@ -1,33 +1,18 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useGameStore } from '../stores/gameStore';
-import { PlayingCard } from '../components/PlayingCard';
-import { 
-  ArrowUpCircle, 
-  ArrowDownCircle, 
-  RotateCcw, 
-  Trophy,
+import { PlayerDetails } from '../components/PlayerDetails';
+import { HostActions } from '../components/HostActions';
+import { GameActions } from '../components/GameActions';
+import { GameBoard } from '../components/GameBoard';
+import { GameFooter } from '../components/GameFooter';
+import { GameEndDisplay } from '../components/GameEndDisplay';
 
-  Play,
-  SkipForward,
+import { HostDisconnectionScreen } from '../components/HostDisconnectionScreen';
+import { Toast } from '../components/Toast';
+import { TrickCardModal } from '../components/TrickCardModal';
 
-} from 'lucide-react';
 
-// Helper function to format card display names with proper suit symbols
-const formatCardDisplay = (card: any): string => {
-  if (!card) return 'Empty';
-  if (card.isJoker) return `JOKER (${card.value})`;
-  
-  const suitSymbols = {
-    hearts: '♥',
-    diamonds: '♦',
-    clubs: '♣',
-    spades: '♠'
-  };
-  
-  const suitSymbol = suitSymbols[card.suit as keyof typeof suitSymbols] || card.suit;
-  return `${card.rank} ${suitSymbol} (${card.value})`;
-};
 
 export function GamePage() {
   const { roomId } = useParams();
@@ -49,6 +34,16 @@ export function GamePage() {
   const [pabloCountdown, setPabloCountdown] = useState<number>(15);
   const [lastReplacedCard, setLastReplacedCard] = useState<{playerId: string, cardIndex: number} | null>(null);
   
+  // Toast notification state
+  const [showToast, setShowToast] = useState<boolean>(false);
+  const [toastMessage, setToastMessage] = useState<string>('');
+  
+  // Copy feedback state
+  const [linkCopied, setLinkCopied] = useState<boolean>(false);
+
+  // Reconnection state
+  const [isReconnecting, setIsReconnecting] = useState<boolean>(false);
+
 
   
 
@@ -64,7 +59,6 @@ export function GamePage() {
   const canReplace = isMyTurn && gameState?.lastAction?.type === 'draw';
   const canDiscard = isMyTurn && gameState?.lastAction?.type === 'draw';
   const canCallPablo = isMyTurn && gameState?.gamePhase === 'playing' && !isPabloWindow && !gameState?.lastAction?.type && !gameState?.pabloCalled && !gameState?.finalRoundStarted;
-  const isFinalRound = gameState?.finalRoundStarted;
   const pabloCaller = gameState?.pabloCallerId ? gameState.players.find(p => p.id === gameState.pabloCallerId) : null;
   
   // Trick card state
@@ -86,14 +80,24 @@ export function GamePage() {
   // Debug logging (only in development)
   if (import.meta.env.DEV) {
     console.log('GamePage: Component rendered');
+    console.log('GamePage: Room info:', {
+      roomId,
+      storeRoomId,
+      roomKey: gameState?.settings?.roomKey,
+      gameState: gameState ? 'loaded' : 'not loaded'
+    });
   }
+
+
 
   // Redirect if not in a room
   useEffect(() => {
-    if (!storeRoomId && !isLoading) {
+    // Only redirect if we're not in a room, not loading, and not attempting to reconnect
+    if (!storeRoomId && !isLoading && !isReconnecting) {
+      console.log('GamePage: No room ID, not loading, and not reconnecting - redirecting to home');
       navigate('/');
     }
-  }, [storeRoomId, isLoading, navigate]);
+  }, [storeRoomId, isLoading, isReconnecting, navigate]);
 
 
 
@@ -107,18 +111,16 @@ export function GamePage() {
     console.log('GamePage: lastAction =', gameState?.lastAction);
     
          // Reset trick card states when trick is not active
-     if (!isTrickActive || !isMyTrick || !activeTrick) {
-       setSwapSourceCardIndex(null);
-       setSwapTargetPlayerId('');
-       setSwapTargetCardIndex(null);
-       setSpyTargetPlayerId('');
-       setSpyTargetCardIndex(null);
-       setShowIncomingCard(false);
-       setIncomingCard(null);
-     }
-     
-
-      }, [isTrickActive, isMyTrick, activeTrick, gameState?.gamePhase, gameState?.lastAction]);
+         if (!isTrickActive || !isMyTrick || !activeTrick) {
+           setSwapSourceCardIndex(null);
+           setSwapTargetPlayerId('');
+           setSwapTargetCardIndex(null);
+           setSpyTargetPlayerId('');
+           setSpyTargetCardIndex(null);
+           setShowIncomingCard(false);
+           setIncomingCard(null);
+         }
+       }, [isTrickActive, isMyTrick, activeTrick, gameState?.gamePhase, gameState?.lastAction]);
 
   // Auto-connect and auto-reconnect when component mounts
   useEffect(() => {
@@ -126,24 +128,33 @@ export function GamePage() {
       // Only attempt reconnection if:
       // 1. Not connected to socket AND
       // 2. Not already in a room AND
-      // 3. Not currently loading
-      if (!isConnected && !storeRoomId && !isLoading) {
-        console.log('GamePage: Attempting to connect...');
-        useGameStore.getState().connect();
+      // 3. Not currently loading AND
+      // 4. Not already attempting to reconnect
+      if (!isConnected && !storeRoomId && !isLoading && !isReconnecting) {
+        console.log('GamePage: Attempting to connect and reconnect...');
+        setIsReconnecting(true);
         
-        // Try to auto-reconnect if we have saved session data
-        const { autoReconnect } = useGameStore.getState();
-        const reconnected = await autoReconnect();
-        if (reconnected) {
-          console.log('GamePage: Auto-reconnected successfully');
-        } else {
-          console.log('GamePage: No saved session or auto-reconnect failed');
+        try {
+          useGameStore.getState().connect();
+          
+          // Try to auto-reconnect if we have saved session data
+          const { autoReconnect } = useGameStore.getState();
+          const reconnected = await autoReconnect();
+          if (reconnected) {
+            console.log('GamePage: Auto-reconnected successfully');
+          } else {
+            console.log('GamePage: No saved session or auto-reconnect failed');
+          }
+        } catch (error) {
+          console.error('GamePage: Reconnection attempt failed:', error);
+        } finally {
+          setIsReconnecting(false);
         }
       }
     };
     
     attemptReconnection();
-  }, [isConnected, storeRoomId, isLoading]);
+  }, [isConnected, storeRoomId, isLoading, isReconnecting]);
 
 
 
@@ -152,6 +163,7 @@ export function GamePage() {
   // Pablo window timer
   useEffect(() => {
     if (isPabloWindow && currentPlayer?.id && !gameState?.finalRoundStarted) {
+      console.log('GamePage: Pablo window started, setting countdown to 15 seconds');
       setPabloCountdown(15);
       
       const countdownInterval = setInterval(() => {
@@ -165,6 +177,7 @@ export function GamePage() {
       }, 1000);
       
       const timer = setTimeout(() => {
+        console.log('GamePage: Pablo countdown expired, executing pabloWindow action');
         clearInterval(countdownInterval);
         executeAction({ type: 'pabloWindow', playerId: currentPlayer.id });
         setPabloTimer(null);
@@ -174,12 +187,14 @@ export function GamePage() {
       setPabloTimer(timer);
       
       return () => {
+        console.log('GamePage: Pablo window effect cleanup');
         clearTimeout(timer);
         clearInterval(countdownInterval);
         setPabloTimer(null);
         setPabloCountdown(15);
       };
     } else if (pabloTimer) {
+      console.log('GamePage: Clearing Pablo timer - Pablo window ended');
       clearTimeout(pabloTimer);
       setPabloTimer(null);
       setPabloCountdown(15);
@@ -235,7 +250,88 @@ export function GamePage() {
     }
   }, [isConnected, gameState, navigate]);
 
+  // Host disconnection auto-redirect
+  useEffect(() => {
+    const hostPlayer = gameState?.players.find(p => p.isHost);
+    if (hostPlayer && !hostPlayer.isConnected) {
+      const timer = setTimeout(() => {
+        leaveRoom();
+        navigate('/');
+      }, 10000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [gameState?.players, leaveRoom, navigate]);
 
+  // Conditional returns - must come after all hooks
+  // Show reconnection loading state
+  if (isReconnecting) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Reconnecting...</h2>
+          <p className="text-gray-600">Please wait while we reconnect you to the game.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading state if we don't have a room ID yet
+  if (!storeRoomId && (isLoading || isReconnecting)) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Loading...</h2>
+          <p className="text-gray-600">Please wait while we load your game.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading state if we don't have game state yet
+  if (!gameState) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Loading Game...</h2>
+          <p className="text-gray-600">Please wait while we load the game state.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Host Disconnection Screen
+  const hostPlayer = gameState.players.find(p => p.isHost);
+  if (hostPlayer && !hostPlayer.isConnected) {
+    return (
+      <HostDisconnectionScreen 
+        hostName={hostPlayer.name} 
+        onLeaveRoom={() => {
+          leaveRoom();
+          navigate('/');
+        }} 
+      />
+    );
+  }
+
+  // Game End Display
+  if (gameState.gamePhase === 'finished') {
+    return (
+      <GameEndDisplay
+        players={gameState.players}
+        pabloCalled={gameState.pabloCalled}
+        pabloCallerId={gameState.pabloCallerId}
+        onResetGame={() => {
+          console.log('GamePage: Resetting game...');
+          executeAction({ type: 'resetGame' });
+        }}
+        isHost={currentPlayer?.isHost || false}
+      />
+    );
+  }
 
   const handleStartRound = () => {
     executeAction({ type: 'startRound' });
@@ -309,16 +405,50 @@ export function GamePage() {
 
 
 
-  const handleCopyPlayerId = async () => {
-    if (currentPlayer?.id) {
-      try {
-        const idToCopy = currentPlayer.shortId || currentPlayer.id;
-        await navigator.clipboard.writeText(idToCopy);
-        console.log('GamePage: Player ID copied to clipboard');
-        // You could add a toast notification here
-      } catch (err) {
-        console.error('GamePage: Failed to copy player ID:', err);
+
+
+  // Copy room code function
+  const handleCopyRoomCode = async () => {
+    // Use the room key (short code like "WEUKLY") instead of the room ID (UUID)
+    const roomCode = gameState?.settings?.roomKey;
+    if (!roomCode) {
+      setToastMessage('❌ Room key not available');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+      return;
+    }
+    
+    const inviteLink = `${window.location.origin}/join/${roomCode}`;
+    console.log('GamePage: Copying invite link:', inviteLink);
+    
+    try {
+      await navigator.clipboard.writeText(inviteLink);
+      
+      // Provide multiple forms of feedback:
+      // 1. Visual feedback (button state change)
+      setLinkCopied(true);
+      
+      // 2. Haptic feedback (vibration if supported)
+      if ('vibrate' in navigator) {
+        navigator.vibrate(100); // Short vibration
       }
+      
+      // 3. Audio feedback suggestion (could be implemented later)
+      // - Play a subtle "ding" sound
+      // - Use Web Audio API for custom sounds
+      
+      // Reset state after 2 seconds for visual feedback
+      setTimeout(() => {
+        setLinkCopied(false);
+      }, 2000);
+    } catch (err) {
+      console.error('Failed to copy room code:', err);
+      setToastMessage('❌ Failed to copy invite link');
+      setShowToast(true);
+      
+      setTimeout(() => {
+        setShowToast(false);
+      }, 3000);
     }
   };
 
@@ -326,9 +456,23 @@ export function GamePage() {
 
 
 
-  const handleEndGame = () => {
-    if (currentPlayer?.isHost) {
-      executeAction({ type: 'endGame', playerId: currentPlayer.id });
+
+
+  // Leave room function
+  const handleLeaveRoom = async () => {
+    try {
+      console.log('GamePage: Leaving room...');
+      
+      // Always call leaveRoom to clear local state
+      leaveRoom();
+      
+      // Force navigation to home
+      console.log('GamePage: Room left successfully, navigating to home');
+      navigate('/');
+    } catch (error) {
+      console.error('GamePage: Failed to leave room:', error);
+      // Force navigation to home even if leaveRoom fails
+      navigate('/');
     }
   };
 
@@ -410,1018 +554,140 @@ export function GamePage() {
     // Add debug logging here when needed
   }
 
-           if (!gameState) {
-      return (
-        <div className="max-w-6xl mx-auto p-6">
-          <div className="bg-white rounded-lg shadow-md p-6 text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading game...</p>
-          </div>
-        </div>
-      );
-    }
 
-    // Host Disconnection Screen
-    const hostPlayer = gameState.players.find(p => p.isHost);
-    if (hostPlayer && !hostPlayer.isConnected) {
-      // Auto-redirect after 10 seconds
-      useEffect(() => {
-        const timer = setTimeout(() => {
-          leaveRoom();
-          navigate('/');
-        }, 10000);
-        
-        return () => clearTimeout(timer);
-      }, [leaveRoom, navigate]);
 
-      return (
-        <div className="max-w-6xl mx-auto p-6">
-          <div className="bg-red-50 border border-red-200 rounded-lg shadow-md p-6 text-center">
-            <div className="text-6xl mb-4">👋</div>
-            <h1 className="text-2xl font-bold text-red-800 mb-4">Host Closed the Game</h1>
-            <p className="text-red-700 mb-6">
-              The host ({hostPlayer.name}) has left the game. The game has ended.
-            </p>
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-              <p className="text-blue-800 font-medium">
-                Redirecting to landing page in 10 seconds...
-              </p>
-              <p className="text-blue-700 text-sm mt-2">
-                Create or join a room to start playing again
-              </p>
-            </div>
-            <button
-              onClick={() => {
-                leaveRoom();
-                navigate('/');
-              }}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
-            >
-              Go to Landing Page Now
-            </button>
-          </div>
-        </div>
-      );
-    }
-
-       // Game End Display
-    if (gameState.gamePhase === 'finished') {
-      // Sort players by total score (lowest first for winner)
-      const sortedPlayers = [...gameState.players].sort((a, b) => a.totalScore - b.totalScore);
-      const winner = sortedPlayers[0];
-      
-      return (
-        <div className="max-w-7xl mx-auto p-4">
-          <div className="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-lg shadow-lg p-6 relative overflow-hidden">
-            {/* Firecracker Animation */}
-            <div className="absolute inset-0 pointer-events-none">
-              <div className="absolute top-4 left-4 animate-bounce">
-                <span className="text-2xl">🎆</span>
-              </div>
-              <div className="absolute top-8 right-8 animate-bounce" style={{ animationDelay: '0.5s' }}>
-                <span className="text-2xl">✨</span>
-              </div>
-              <div className="absolute bottom-8 left-8 animate-bounce" style={{ animationDelay: '1s' }}>
-                <span className="text-2xl">🎇</span>
-              </div>
-              <div className="absolute bottom-4 right-4 animate-bounce" style={{ animationDelay: '1.5s' }}>
-                <span className="text-2xl">🎊</span>
-              </div>
-            </div>
-            
-            <div className="text-center mb-6 relative z-10">
-              <h1 className="text-4xl font-bold text-yellow-800 mb-2 animate-pulse">
-                🏆 Game Complete! 🏆
-              </h1>
-              <div className="text-xl text-yellow-700 mb-4">
-                <span className="font-bold text-2xl">🎉 {winner.name} Wins! 🎉</span>
-              </div>
-              <p className="text-lg text-yellow-600">
-                Final Score: <span className="font-bold">{winner.totalScore}</span> points
-              </p>
-            </div>
-
-            {/* Final Rankings */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-              {sortedPlayers.map((player, index) => (
-                <div key={player.id} className={`border rounded-lg p-4 relative ${
-                  index === 0 ? 'bg-yellow-100 border-yellow-400 shadow-lg' : 'bg-white'
-                }`}>
-                  {/* Rank Badge */}
-                  <div className={`absolute -top-2 -right-2 w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm ${
-                    index === 0 ? 'bg-yellow-500' : 
-                    index === 1 ? 'bg-gray-400' : 
-                    index === 2 ? 'bg-orange-600' : 'bg-gray-500'
-                  }`}>
-                    {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : index + 1}
-                  </div>
-                  
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-semibold text-lg">
-                      {player.name} {player.isHost && '(Host)'}
-                    </h3>
-                    <div className="text-right">
-                      <div className="text-sm text-gray-600">Final Score</div>
-                      <div className={`text-lg font-bold ${
-                        index === 0 ? 'text-yellow-600' : 'text-gray-700'
-                      }`}>
-                        {player.totalScore}
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Show all cards */}
-                  <div className="grid grid-cols-3 grid-rows-2 gap-2 max-w-[180px] mx-auto mb-3">
-                    {player.cards.map((card, cardIndex) => (
-                      <PlayingCard
-                        key={cardIndex}
-                        card={card}
-                      />
-                    ))}
-                  </div>
-                  
-                                     {/* Score Calculation */}
-                   <div className="text-xs text-gray-500">
-                     <div className="font-medium mb-1">Final Cards:</div>
-                     <div className="space-y-1">
-                       {player.cards
-                         .map((card, cardIndex) => ({ card, cardIndex }))
-                         .filter(({ card }) => card !== null)
-                         .map(({ card, cardIndex }) => (
-                           <div key={cardIndex} className="flex justify-between">
-                             <span>Card {cardIndex + 1}:</span>
-                             <span className="font-mono">
-                               {formatCardDisplay(card)}
-                             </span>
-                           </div>
-                         ))}
-                     </div>
-                     
-                     {/* Round History */}
-                     {gameState.roundHistory && gameState.roundHistory.length > 0 && (
-                       <div className="mt-2 pt-2 border-t border-gray-200">
-                         <div className="font-medium mb-1">Round History:</div>
-                         <div className="space-y-1">
-                           {gameState.roundHistory.map((round, roundIndex) => {
-                             const playerRoundScore = round.roundDeltas[player.id] || 0;
-                             // Calculate cumulative total up to this round
-                             let cumulativeTotal = 0;
-                             for (let i = 0; i <= roundIndex; i++) {
-                               cumulativeTotal += gameState.roundHistory[i].roundDeltas[player.id] || 0;
-                             }
-                             return (
-                               <div key={roundIndex} className="flex justify-between text-xs">
-                                 <span>R{round.roundNumber}:</span>
-                                 <span className={`font-mono ${playerRoundScore > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                   {playerRoundScore > 0 ? '+' : ''}{playerRoundScore} (Total: {cumulativeTotal})
-                                 </span>
-                               </div>
-                             );
-                           })}
-                         </div>
-                       </div>
-                     )}
-                   </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Pablo Caller Info */}
-            {gameState.pabloCalled && gameState.pabloCallerId && (() => {
-              const pabloCaller = gameState.players.find(p => p.id === gameState.pabloCallerId);
-              const callerScore = pabloCaller?.totalScore || 0;
-              const isWinner = pabloCaller?.id === winner.id;
-              
-              return (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
-                  <h3 className="font-semibold text-yellow-800 mb-2">
-                    Pablo called by <span className="font-bold">{pabloCaller?.name}</span>
-                  </h3>
-                  <p className="text-yellow-700">
-                    {isWinner 
-                      ? `🎉 They won the game with the lowest score!` 
-                      : `They finished with ${callerScore} points`
-                    }
-                  </p>
-                </div>
-              );
-            })()}
-
-            {/* Play Again Button - Only for Host */}
-            {currentPlayer?.isHost && (
-              <div className="text-center">
-                <button
-                  onClick={() => {
-                    console.log('GamePage: Resetting game...');
-                    executeAction({ type: 'resetGame' });
-                  }}
-                  className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg hover:from-blue-600 hover:to-purple-700 transition-all transform hover:scale-105 font-semibold text-lg"
-                >
-                  🎮 Play Again!
-                </button>
-              </div>
-            )}
-            
-            {/* Non-host message */}
-            {!currentPlayer?.isHost && (
-              <div className="text-center">
-                <p className="text-gray-600 text-lg">
-                  Waiting for the host to start a new game...
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-      );
-    }
-
-    // Round End Display
-    if (gameState.gamePhase === 'roundEnd') {
-     return (
-       <div className="max-w-7xl mx-auto p-4">
-         <div className="bg-white rounded-lg shadow-md p-6">
-                       <div className="text-center mb-6">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Round {gameState.roundNumber} Complete!</h1>
-              <div className="text-lg text-gray-600 mb-4">
-                {currentPlayer?.isHost ? (
-                  <div className="space-y-2">
-                    <p>Ready to start the next round?</p>
-                    <button
-                      onClick={handleStartRound}
-                      className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold"
-                    >
-                      <Play size={16} className="inline mr-2" />
-                      Start Next Round
-                    </button>
-                  </div>
-                ) : (
-                  <p>Waiting for host to start next round...</p>
-                )}
-              </div>
-            </div>
-
-           {/* Round Results */}
-           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-             {gameState.players.map((player) => (
-               <div key={player.id} className="border rounded-lg p-4">
-                 <div className="flex items-center justify-between mb-3">
-                   <h3 className="font-semibold text-lg">
-                     {player.name} {player.isHost && '(Host)'}
-                   </h3>
-                                       <div className="text-right">
-                      <div className="text-sm text-gray-600">Round Score</div>
-                      <div className={`text-lg font-bold ${player.roundScore > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                        {player.roundScore > 0 ? '+' : ''}{player.roundScore}
-                      </div>
-                      <div className="text-sm text-gray-600">Game Total</div>
-                      <div className="text-lg font-bold text-blue-600">
-                        {player.totalScore}
-                      </div>
-                    </div>
-                 </div>
-                 
-                                   {/* Show all cards */}
-                  <div className="grid grid-cols-3 grid-rows-2 gap-2 max-w-[180px] mx-auto">
-                    {player.cards.map((card, cardIndex) => (
-                      <PlayingCard
-                        key={cardIndex}
-                        card={card}
-                      />
-                    ))}
-                  </div>
-                 
-                                   <div className="text-center mt-2">
-                    <div className="text-sm text-gray-600">Total Score: {player.totalScore}</div>
-                    
-                    {/* Score Calculation */}
-                    <div className="mt-2 text-xs text-gray-500">
-                      <div className="font-medium mb-1">Score Breakdown:</div>
-                      <div className="space-y-1">
-                        {player.cards
-                          .map((card, cardIndex) => ({ card, cardIndex }))
-                          .filter(({ card }) => card !== null)
-                          .map(({ card, cardIndex }) => (
-                            <div key={cardIndex} className="flex justify-between">
-                              <span>Card {cardIndex + 1}:</span>
-                              <span className="font-mono">
-                                {formatCardDisplay(card)}
-                              </span>
-                            </div>
-                          ))}
-                        <div className="border-t pt-1 font-medium">
-                          <span>Round Total: {player.roundScore}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-               </div>
-             ))}
-           </div>
-
-                       {/* Pablo Caller Info */}
-            {gameState.pabloCalled && gameState.pabloCallerId && (() => {
-              const pabloCaller = gameState.players.find(p => p.id === gameState.pabloCallerId);
-              const callerScore = pabloCaller?.roundScore || 0;
-              const lowestScore = Math.min(...gameState.players.map(p => p.roundScore));
-              const lowestPlayer = gameState.players.find(p => p.roundScore === lowestScore);
-              const isWinner = callerScore === lowestScore;
-              
-              return (
-                                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
-                   <h3 className="font-semibold text-yellow-800 mb-2">
-                     Pablo called by <span className="font-bold">{pabloCaller?.name}</span>
-                   </h3>
-                   <p className="text-yellow-700">
-                     {isWinner 
-                       ? `They won with lowest total: ${lowestScore}` 
-                       : <>They lost: lowest total is {lowestScore} with player <span className="font-bold">{lowestPlayer?.name}</span></>
-                     }
-                   </p>
-                 </div>
-              );
-            })()}
-         </div>
-       </div>
-     );
-       }
-
-    // Peeking Phase Display
-    if (gameState.gamePhase === 'peeking') {
-      const currentPlayerPeekedCards = gameState.peekedCards?.[currentPlayer?.id || ''] || [];
-      const canPeekMore = currentPlayerPeekedCards.length < 2;
-
-      return (
-        <div className="max-w-7xl mx-auto p-4">
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="text-center mb-6">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Round {gameState.roundNumber} - Peek at Your Cards!</h1>
-              <div className="text-lg text-gray-600 mb-4">
-                Choose 2 cards to peek at, then click "Ready" when you're done
-              </div>
-              <div className="text-sm text-gray-500">
-                You've peeked at {currentPlayerPeekedCards.length}/2 cards
-              </div>
-            </div>
-
-            {/* Player Cards Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-              {gameState.players.map((player) => {
-                const isCurrentPlayer = currentPlayer?.id === player.id;
-                const playerPeekedCards = gameState.peekedCards?.[player.id] || [];
-                
-                return (
-                  <div key={player.id} className={`border rounded-lg p-4 ${isCurrentPlayer ? 'border-blue-400 bg-blue-50' : ''}`}>
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="font-semibold text-lg">
-                        {player.name} {player.isHost && '(Host)'}
-                        {isCurrentPlayer && ' (You)'}
-                      </h3>
-                      {/* Ready Status Indicator */}
-                      {gameState.readyPlayers?.includes(player.id) && (
-                        <div className="bg-green-500 text-white text-xs px-2 py-1 rounded-full flex items-center">
-                          <span className="mr-1">✓</span>
-                          Ready
-                        </div>
-                      )}
-                    </div>
-                    
-                    {/* Cards Grid - Only show first 4 cards during peeking, last 2 as blank slots */}
-                    <div className="grid grid-cols-3 grid-rows-2 gap-2 max-w-[180px] mx-auto">
-                      {/* First 4 cards (the dealt cards) */}
-                      {player.cards.slice(0, 4).map((card, cardIndex) => {
-                        const isPeeked = playerPeekedCards.includes(cardIndex);
-                        const isMyCard = isCurrentPlayer;
-                        const canClick = isMyCard && canPeekMore && !isPeeked;
-                        
-                        return (
-                          <div key={cardIndex} className="relative">
-                            <PlayingCard
-                              card={card}
-                              isHidden={!isPeeked}
-                              onClick={canClick ? () => handlePeekCard(cardIndex) : undefined}
-                              className={canClick ? 'cursor-pointer hover:scale-105 transition-transform' : ''}
-                            />
-                            {isPeeked && (
-                              <div className="absolute -top-1 -right-1 bg-green-500 text-white text-xs px-1 rounded-full">
-                                ✓
-                              </div>
-                            )}
-                            {canClick && (
-                              <div className="absolute -top-1 -left-1 bg-blue-500 text-white text-xs px-1 rounded-full">
-                                Click
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                      
-                      {/* Last 2 positions as blank slots */}
-                      {Array.from({ length: 2 }, (_, index) => (
-                        <div key={`blank-${index + 4}`} className="w-16 h-24 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center bg-gray-50">
-                          <span className="text-gray-400 text-xs">Empty</span>
-                        </div>
-                      ))}
-                    </div>
-                    
-                    {isCurrentPlayer && (
-                      <div className="text-center mt-2">
-                        <p className="text-sm text-gray-600">
-                          {canPeekMore 
-                            ? `Click ${2 - currentPlayerPeekedCards.length} more card${2 - currentPlayerPeekedCards.length === 1 ? '' : 's'} to peek`
-                            : 'You\'ve peeked at all 2 cards!'
-                          }
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Instructions and Ready Button */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h3 className="font-semibold text-blue-800 mb-2">Instructions:</h3>
-              <ul className="text-sm text-blue-700 space-y-1 mb-4">
-                <li>• Click on any 2 of your 4 cards to peek at them</li>
-                <li>• Memorize your cards - they will be hidden after peeking</li>
-                <li>• Click "Ready" when you're done peeking</li>
-                <li>• Game starts when all players are ready</li>
-              </ul>
-              
-              {/* Ready Button */}
-              {currentPlayer && (
-                <div className="text-center">
-                  <button
-                    onClick={handlePlayerReady}
-                    disabled={currentPlayerPeekedCards.length < 2 || (gameState.readyPlayers || []).includes(currentPlayer.id)}
-                    className={`px-6 py-2 rounded-lg font-semibold transition-colors ${
-                      (gameState.readyPlayers || []).includes(currentPlayer.id)
-                        ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
-                        : currentPlayerPeekedCards.length >= 2
-                        ? 'bg-green-500 hover:bg-green-600 text-white'
-                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    }`}
-                  >
-                    {(gameState.readyPlayers || []).includes(currentPlayer.id) 
-                      ? '✓ Ready - Waiting for others...' 
-                      : currentPlayerPeekedCards.length >= 2 
-                      ? 'Ready!' 
-                      : `Peek ${2 - currentPlayerPeekedCards.length} more card${2 - currentPlayerPeekedCards.length === 1 ? '' : 's'}`}
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    return (
+  // Main Game UI
+  return (
     <div className="max-w-7xl mx-auto p-4">
-             {/* Header */}
-       <div className="bg-white rounded-lg shadow-md p-4 mb-4">
-         <div className="flex items-center justify-between">
-           <div>
-                           <h1 className="text-2xl font-bold text-gray-900">Room: {gameState?.settings?.roomKey || roomId}</h1>
-              
-              {/* Sharable Link */}
-              <div className="bg-green-50 border border-green-200 rounded-lg p-2 mb-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <p className="text-sm text-green-700 font-medium">Share this link to invite players:</p>
-                    <p className="text-xs text-green-600 font-mono break-all">
-                      {window.location.origin}/join/{gameState?.settings?.roomKey || roomId}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(`${window.location.origin}/join/${gameState?.settings?.roomKey || roomId}`);
-                      // You could add a toast notification here
-                    }}
-                    className="ml-2 px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition-colors"
-                    title="Copy room link"
-                  >
-                    Copy
-                  </button>
-                </div>
-              </div>
-             
-             {/* Player Profile */}
-             {currentPlayer && (
-               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
-                 <div className="flex items-center justify-between">
-                   <div>
-                     <h3 className="font-semibold text-blue-900">Playing as: {currentPlayer.name}</h3>
-                                           <div className="flex items-center space-x-2">
-                        <p className="text-sm text-blue-700">Player ID: {currentPlayer.shortId || currentPlayer.id}</p>
-                        <button
-                          onClick={handleCopyPlayerId}
-                          className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 transition-colors"
-                          title="Copy Player ID to clipboard"
-                        >
-                          Copy
-                        </button>
-                      </div>
-                     <p className="text-xs text-blue-600 mt-1">
-                       💡 Save this ID to rejoin if disconnected
-                     </p>
-                   </div>
-                   <div className="text-right">
-                     <div className="text-sm text-blue-600">
-                       Total Score: {currentPlayer.totalScore}
-                     </div>
-                     {currentPlayer.roundScore > 0 && (
-                       <div className="text-sm text-blue-600">
-                         Round Score: {currentPlayer.roundScore}
-                       </div>
-                     )}
-                   </div>
-                 </div>
-               </div>
-             )}
-             
-             <p className="text-gray-600">
-                Phase: {gameState.gamePhase} | Round: {gameState.roundNumber}
-                {isFinalRound && (
-                  <span className="ml-2 text-red-600 font-semibold">
-                    🚨 FINAL ROUND - Pablo called by {pabloCaller?.name}!
-                  </span>
-                )}
-              </p>
-           </div>
-          <div className="flex items-center space-x-4">
-            {currentPlayer?.isHost && (
-              <button
-                onClick={handleEndGame}
-                className="flex items-center justify-center space-x-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
-                title="End the game immediately (Host only)"
-              >
-                <Trophy size={16} />
-                <span>End Game</span>
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
+      {/* Toast Notification */}
+      <Toast show={showToast} message={toastMessage} />
 
-             <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-         {/* Game Board - Compact Layout */}
-         <div className="lg:col-span-3">
-           <div className="bg-white rounded-lg shadow-md p-4">
-             <h2 className="text-lg font-semibold mb-3">Game Board</h2>
-             
-             {/* Stock and Discard - Compact */}
-             <div className="flex justify-center space-x-6 mb-4">
-               <div className="text-center">
-                 <div className="w-12 h-16 bg-blue-100 border-2 border-blue-300 rounded-lg flex items-center justify-center mb-1">
-                   <span className="text-blue-600 font-bold text-sm">{gameState.stock.length}</span>
-                 </div>
-                 <p className="text-xs text-gray-600">Stock</p>
-               </div>
-               
-               <div className="text-center">
-                 <div className="w-12 h-16 bg-green-100 border-2 border-green-300 rounded-lg flex items-center justify-center mb-1">
-                   {gameState.discard.length > 0 ? (
-                     <div className="text-center">
-                       <div className="text-sm font-bold text-green-800">{gameState.discard[gameState.discard.length - 1].rank}</div>
-                       <div className="text-xs text-green-600">{gameState.discard[gameState.discard.length - 1].suit}</div>
-                     </div>
-                   ) : (
-                     <span className="text-green-600 font-bold text-xs">Empty</span>
-                   )}
-                 </div>
-                 <p className="text-xs text-gray-600">Discard ({gameState.discard.length})</p>
-               </div>
-             </div>
+      {/* Player Details */}
+      <PlayerDetails
+        roomId={roomId || ''}
+        roomKey={gameState?.settings?.roomKey}
+        currentPlayerName={currentPlayer?.name}
+        onCopyRoomCode={handleCopyRoomCode}
+        onLeaveRoom={handleLeaveRoom}
+        linkCopied={linkCopied}
+      />
 
-                           {/* Player Cards Grid - Compact */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {gameState.players.map((player) => {
-                  const isCurrentTurn = gameState.currentPlayerIndex === gameState.players.findIndex(p => p.id === player.id);
-                   
-                                       return (
-                      <div key={player.id} className={`border rounded-lg p-3 ${isCurrentTurn ? 'border-yellow-400 bg-yellow-50 shadow-lg' : ''}`}>
-                                                                                                 <div className="flex items-center justify-between mb-2">
-                          <h3 className={`font-semibold text-sm ${isCurrentTurn ? 'text-yellow-800' : ''} ${!player.isConnected ? 'text-gray-500' : ''}`}>
-                            {player.name} {player.isHost && '(H)'}
-                            {isCurrentTurn && ' 🎯 (Current)'}
-                            {!player.isConnected && ' (Player Left)'}
-                          </h3>
-                          <div className="flex items-center space-x-1">
-                            {!player.isConnected && (
-                              <div className="bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full">
-                                Left
-                              </div>
-                            )}
-                            <Trophy size={12} className="text-yellow-500" />
-                            <span className="font-semibold text-sm">{player.totalScore}</span>
-                          </div>
-                        </div>
-                       
-                                                                 {/* Cards Grid - Compact */}
-                  <div className="grid grid-cols-3 grid-rows-2 gap-1 max-w-[180px] mx-auto">
-                           {player.cards.map((card, cardIndex) => {
-                             const isMyCard = currentPlayer?.id === player.id;
-                             const isHidden = card && card.suit === 'hidden';
-                             // Remove peekable functionality - only allow during peeking phase
-                             const isPeekable = false;
-                             
-                             // Check if this card is selected for replacement - only show for current player
-                             const isSelectedForReplacement = selectedCardIndex === cardIndex && canReplace && isMyCard;
-                             // Check if this card was just replaced (show highlight for a few seconds)
-                             const wasJustReplaced = lastReplacedCard && 
-                               lastReplacedCard.playerId === player.id && 
-                               lastReplacedCard.cardIndex === cardIndex;
-                             
-                                                           // Swap trick card selection
-                              const isSwapSourceCard = isMyCard && isTrickActive && isMyTrick && activeTrick?.type === 'swap' && swapSourceCardIndex === cardIndex;
-                              const isSwapTargetCard = !isMyCard && isTrickActive && isMyTrick && activeTrick?.type === 'swap' && 
-                                swapTargetPlayerId === player.id && swapTargetCardIndex === cardIndex;
-                              
-                              // Spy trick card selection
-                              const isSpyTargetCard = isTrickActive && isMyTrick && activeTrick?.type === 'spy' && 
-                                spyTargetPlayerId === player.id && spyTargetCardIndex === cardIndex;
-                             
-                             return (
-                               <div key={cardIndex} className="relative">
-                                 <PlayingCard
-                                   card={card}
-                                   isHidden={isHidden}
-                                   isSelected={isSelectedForReplacement}
-                                   isPeekable={isPeekable}
-                                                                       onClick={() => {
-                                      if (isMyCard && canReplace) {
-                                        setSelectedCardIndex(cardIndex);
-                                      } else if (isTrickActive && isMyTrick && activeTrick?.type === 'swap') {
-                                        // Handle swap card selection
-                                        if (isMyCard) {
-                                          setSwapSourceCardIndex(cardIndex);
-                                          setSwapTargetPlayerId(''); // Reset target selection
-                                          setSwapTargetCardIndex(null);
-                                        } else if (swapSourceCardIndex !== null) {
-                                          // Set target player and card
-                                          setSwapTargetPlayerId(player.id);
-                                          setSwapTargetCardIndex(cardIndex);
-                                        }
-                                      } else if (isTrickActive && isMyTrick && activeTrick?.type === 'spy') {
-                                        // Handle spy card selection
-                                        setSpyTargetPlayerId(player.id);
-                                        setSpyTargetCardIndex(cardIndex);
-                                      }
-                                    }}
-                                                                       className={`
-                                      ${isSelectedForReplacement ? 'ring-4 ring-purple-500 ring-opacity-75 scale-110' : ''}
-                                      ${wasJustReplaced ? 'ring-4 ring-green-500 ring-opacity-75 scale-110 animate-pulse' : ''}
-                                      ${isSwapSourceCard ? 'ring-4 ring-red-500 ring-opacity-75 scale-110' : ''}
-                                      ${isSwapTargetCard ? 'ring-4 ring-red-500 ring-opacity-75 scale-110' : ''}
-                                      ${isSpyTargetCard ? 'ring-4 ring-blue-500 ring-opacity-75 scale-110' : ''}
-                                      ${(isMyCard && isTrickActive && isMyTrick && activeTrick?.type === 'swap') || 
-                                        (!isMyCard && isTrickActive && isMyTrick && activeTrick?.type === 'swap' && swapSourceCardIndex !== null && swapTargetPlayerId === player.id) ||
-                                        (isTrickActive && isMyTrick && activeTrick?.type === 'spy')
-                                        ? 'cursor-pointer hover:scale-105' : ''}
-                                      transition-all duration-200
-                                    `}
-                                 />
-                                 
-                                 {/* Selection indicator */}
-                                 {isSelectedForReplacement && (
-                                   <div className="absolute -top-2 -left-2 bg-purple-500 text-white text-xs px-2 py-1 rounded-full font-bold z-10">
-                                     SELECTED
-                                   </div>
-                                 )}
-                                 
-                                 {/* Replacement indicator */}
-                                 {wasJustReplaced && (
-                                   <div className="absolute -top-2 -right-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full font-bold z-10">
-                                     REPLACED
-                                   </div>
-                                 )}
-                                 
-                                 {/* Swap selection indicators */}
-                                 {isSwapSourceCard && (
-                                   <div className="absolute -top-2 -left-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full font-bold z-10">
-                                     YOUR CARD
-                                   </div>
-                                 )}
-                                 
-                                                                   {isSwapTargetCard && (
-                                    <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full font-bold z-10">
-                                      TARGET CARD
-                                    </div>
-                                  )}
-                                  
-                                  {isSpyTargetCard && (
-                                    <div className="absolute -top-2 -right-2 bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-bold z-10">
-                                      SPY TARGET
-                                    </div>
-                                  )}
-                                  
+      {/* Host Actions */}
+      <HostActions
+        isHost={currentPlayer?.isHost || false}
+        gamePhase={gameState.gamePhase}
+        playersCount={gameState.players.length}
+        onStartRound={handleStartRound}
+      />
 
-                               </div>
-                             );
-                           })}
-                         </div>
-                       
-                                               {player.roundScore > 0 && (
-                          <p className="text-center mt-1 text-xs text-gray-600">
-                            Round: {player.roundScore}
-                          </p>
-                        )}
-                      </div>
-                    );
-                  })}
-             </div>
-           </div>
-         </div>
+      {/* Game Actions */}
+      <GameActions
+        gamePhase={gameState.gamePhase}
+        isMyTurn={isMyTurn || false}
+        canDraw={canDraw || false}
+        canReplace={canReplace || false}
+        canDiscard={canDiscard || false}
+        canCallPablo={canCallPablo || false}
 
-                 {/* Game Controls - Compact */}
-         <div className="space-y-3">
-           {/* Game Actions */}
-           <div className="bg-white rounded-lg shadow-md p-3">
-             <h3 className="font-semibold mb-2 text-sm">Game Actions</h3>
-             
-             {/* Final Round Warning */}
-             {isFinalRound && (
-               <div className="bg-red-50 border border-red-200 rounded-lg p-2 mb-2">
-                 <h4 className="font-semibold text-red-800 mb-1 text-sm">🚨 Final Round Active!</h4>
-                 <p className="text-xs text-red-700">
-                   Pablo was called by {pabloCaller?.name}. Every player gets one final turn, then the round ends.
-                 </p>
-               </div>
-             )}
-             
-                           <div className="space-y-1">
-                {/* Show "Be Patient" message for non-current players */}
-                {!isMyTurn && gameState.gamePhase === 'playing' && (
-                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-center">
-                    <p className="text-gray-600 text-sm font-medium">⏳ Psst. Be patient.</p>
-                    <p className="text-gray-500 text-xs">Other players are finishing their turn</p>
-                  </div>
-                )}
-                
-                {gameState.gamePhase === 'waiting' && currentPlayer?.isHost && (
-                  <>
-                    {gameState.players.length < 2 && (
-                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-2 mb-2">
-                        <p className="text-xs text-yellow-800 text-center">
-                          ⚠️ Need at least 2 players to start the game
-                        </p>
-                      </div>
-                    )}
-                    <button
-                      onClick={handleStartRound}
-                      disabled={gameState.players.length < 2}
-                      className="w-full flex items-center justify-center space-x-1 px-3 py-1.5 bg-green-600 text-white rounded text-sm hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-                    >
-                      <Play size={14} />
-                      <span>Start Round</span>
-                    </button>
-                  </>
-                )}
-                
-                {gameState.gamePhase === 'waiting' && !currentPlayer?.isHost && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
-                    <p className="text-blue-700 text-sm font-medium">⏳ Waiting for host to start the round...</p>
-                  </div>
-                )}
-                
-                                 {canDraw && !isTrickActive && (
-                  <>
-                    <button
-                      onClick={handleDrawFromStock}
-                      className="w-full flex items-center justify-center space-x-1 px-3 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors"
-                    >
-                      <ArrowDownCircle size={14} />
-                      <span>Draw from Stock</span>
-                    </button>
-                    
-                    <button
-                      onClick={handleDrawFromDiscard}
-                      className="w-full flex items-center justify-center space-x-1 px-3 py-1.5 bg-green-600 text-white rounded text-sm hover:bg-green-700 transition-colors"
-                    >
-                      <ArrowUpCircle size={14} />
-                      <span>Draw from Discard</span>
-                    </button>
-                    
-                    
-                     
-                      
-                  </>
-                )}
-              
-                                                              {/* Drawn Card Display */}
-                 {gameState.lastAction?.type === 'draw' && currentPlayer?.id === gameState.lastAction.playerId && (
-                   <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-2 mb-2">
-                     <h4 className="font-semibold text-yellow-800 mb-1 text-sm">🎯 Drawn Card - Select Replacement</h4>
-                     <div className="flex items-center justify-center">
-                       <PlayingCard
-                         card={gameState.lastAction.card || null}
-                         className="border-2 border-yellow-300 ring-4 ring-yellow-400 ring-opacity-75 scale-110"
-                       />
-                     </div>
-                     <p className="text-xs text-yellow-700 mt-1 text-center">
-                       💡 Click on a card in your hand to select it for replacement
-                     </p>
-                     
-                     {/* Instructions for replacement */}
-                     <div className="mt-2 p-2 bg-yellow-100 rounded border border-yellow-300">
-                       <p className="text-xs text-yellow-800 font-medium">Replacement Instructions:</p>
-                       <ul className="text-xs text-yellow-700 mt-1 space-y-1">
-                         <li>• Click on any card in your hand to select it</li>
-                         <li>• Selected card will be highlighted with purple ring</li>
-                         <li>• Click "Replace Card" button to complete the action</li>
-                         <li>• Or click "Discard Drawn Card" to skip replacement</li>
-                       </ul>
-                     </div>
-                   </div>
-                 )}
+        pabloCallerName={pabloCaller?.name}
+        isPabloWindow={isPabloWindow}
+        pabloCountdown={pabloCountdown}
+        isTrickActive={isTrickActive}
+        isMyTrick={isMyTrick}
+        activeTrick={activeTrick}
+        lastAction={gameState.lastAction}
+        selectedCardIndex={selectedCardIndex}
+        swapSourceCardIndex={swapSourceCardIndex}
+        swapTargetPlayerId={swapTargetPlayerId}
+        swapTargetCardIndex={swapTargetCardIndex}
+        spyTargetPlayerId={spyTargetPlayerId}
+        spyTargetCardIndex={spyTargetCardIndex}
+        playersCount={gameState.players.length}
+        players={gameState.players}
+        roundNumber={gameState.roundNumber}
+        peekedCards={gameState.peekedCards || {}}
+        readyPlayers={gameState.readyPlayers || []}
+        currentPlayerId={currentPlayer?.id}
+        currentPlayerIndex={gameState.currentPlayerIndex}
+        onDrawFromStock={handleDrawFromStock}
+        onDrawFromDiscard={handleDrawFromDiscard}
+        onReplaceCard={handleReplaceCard}
+        onDiscardCard={handleDiscardCard}
+        onCallPablo={handleCallPablo}
+        onSkipPablo={handleSkipPablo}
+        onExecuteSwap={handleExecuteSwap}
+        onExecuteSpy={handleExecuteSpy}
+        onSkipTrick={handleSkipTrick}
+        onPlayerReady={handlePlayerReady}
+      />
+
+      {/* Game Board */}
+      <GameBoard
+        stock={gameState.stock}
+        discard={gameState.discard}
+        players={gameState.players}
+        currentPlayerIndex={gameState.currentPlayerIndex}
+        currentPlayerId={currentPlayer?.id}
+        selectedCardIndex={selectedCardIndex}
+        canReplace={canReplace || false}
+        lastReplacedCard={lastReplacedCard}
+        isTrickActive={isTrickActive}
+        isMyTrick={isMyTrick}
+        activeTrick={activeTrick}
+        swapSourceCardIndex={swapSourceCardIndex}
+        swapTargetPlayerId={swapTargetPlayerId}
+        swapTargetCardIndex={swapTargetCardIndex}
+        spyTargetPlayerId={spyTargetPlayerId}
+        spyTargetCardIndex={spyTargetCardIndex}
+        gamePhase={gameState.gamePhase}
+        peekedCards={gameState.peekedCards || {}}
+        readyPlayers={gameState.readyPlayers || []}
+        gameSettings={{
+          cardsPerPlayer: gameState.settings.cardsPerPlayer,
+          cardsGridColumns: gameState.settings.cardsGridColumns,
+          cardsGridRows: gameState.settings.cardsGridRows
+        }}
+        roundNumber={gameState.roundNumber}
+        pabloCalled={gameState.pabloCalled}
+        pabloCallerId={gameState.pabloCallerId}
+        isHost={currentPlayer?.isHost || false}
+        onCardClick={(playerId, cardIndex) => {
+          if (currentPlayer?.id === playerId && canReplace) {
+            setSelectedCardIndex(cardIndex);
+          } else if (isTrickActive && isMyTrick && activeTrick?.type === 'swap') {
+            // Handle swap card selection
+            if (currentPlayer?.id === playerId) {
+              setSwapSourceCardIndex(cardIndex);
+              setSwapTargetPlayerId(''); // Reset target selection
+              setSwapTargetCardIndex(null);
+            } else if (swapSourceCardIndex !== null) {
+              // Set target player and card
+              setSwapTargetPlayerId(playerId);
+              setSwapTargetCardIndex(cardIndex);
+            }
+          } else if (isTrickActive && isMyTrick && activeTrick?.type === 'spy') {
+            // Handle spy card selection
+            setSpyTargetPlayerId(playerId);
+            setSpyTargetCardIndex(cardIndex);
+          }
+        }}
+        onPeekCard={handlePeekCard}
+        onStartRound={handleStartRound}
+      />
 
 
 
-                                                           {canReplace && !isTrickActive && (
-                  <button
-                    onClick={handleReplaceCard}
-                    disabled={selectedCardIndex === null}
-                    className="w-full flex items-center justify-center space-x-1 px-3 py-1.5 bg-purple-600 text-white rounded text-sm hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <RotateCcw size={14} />
-                    <span>Replace Card</span>
-                  </button>
-                )}
+      {/* Incoming Card Display */}
+      {showIncomingCard && incomingCard && (
+        <TrickCardModal
+          show={showIncomingCard}
+          incomingCard={incomingCard}
+          trickType={activeTrick?.type || undefined}
+        />
+      )}
 
-                {canDiscard && !isTrickActive && (
-                  <button
-                    onClick={handleDiscardCard}
-                    className="w-full flex items-center justify-center space-x-1 px-3 py-1.5 bg-orange-600 text-white rounded text-sm hover:bg-orange-700 transition-colors"
-                  >
-                    <SkipForward size={14} />
-                    <span>Discard Drawn Card</span>
-                  </button>
-                )}
-                
-                {canCallPablo && !isTrickActive && (
-                  <button
-                    onClick={handleCallPablo}
-                    className="w-full flex items-center justify-center space-x-1 px-3 py-1.5 bg-red-600 text-white rounded text-sm hover:bg-red-700 transition-colors"
-                  >
-                    <SkipForward size={14} />
-                    <span>Call Pablo!</span>
-                  </button>
-                )}
-
-                {/* Trick Card Actions */}
-                {isTrickActive && isMyTrick && activeTrick && (
-                  <div className="bg-purple-50 border border-purple-200 rounded-lg p-2 mb-2">
-                    <h4 className="font-semibold text-purple-800 mb-1 text-sm">
-                      {activeTrick.cardRank === '7' ? '🔄 Swap Trick' : '👁️ Spy Trick'}
-                    </h4>
-                    <p className="text-xs text-purple-700 text-center mb-2">
-                      {activeTrick.instructions}
-                    </p>
-                    
-                                         {activeTrick.type === 'swap' && (
-                       <div className="space-y-2">
-                         {/* Instructions */}
-                         <div className="text-center">
-                           <p className="text-xs text-purple-700 mb-2">
-                             Click on your card first, then click on any opponent's card to swap
-                           </p>
-                           {swapSourceCardIndex !== null && (
-                             <p className="text-xs text-green-600 font-medium">
-                               ✓ Your card selected. Now click on opponent's card.
-                             </p>
-                           )}
-                           {swapSourceCardIndex !== null && swapTargetPlayerId && swapTargetCardIndex !== null && (
-                             <p className="text-xs text-green-600 font-medium">
-                               ✓ Both cards selected. Ready to swap!
-                             </p>
-                           )}
-                         </div>
-
-                         {/* Execute Swap Button */}
-                         <div className="flex space-x-1 pt-2">
-                           <button
-                             onClick={handleExecuteSwap}
-                             disabled={swapSourceCardIndex === null || !swapTargetPlayerId || swapTargetCardIndex === null}
-                             className="flex-1 bg-purple-600 text-white py-1 px-2 rounded text-xs hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                           >
-                             Execute Swap
-                           </button>
-                           <button
-                             onClick={handleSkipTrick}
-                             className="flex-1 bg-gray-500 text-white py-1 px-2 rounded text-xs hover:bg-gray-600"
-                           >
-                             Skip
-                           </button>
-                         </div>
-                       </div>
-                     )}
-
-                                         {activeTrick.type === 'spy' && (
-                       <div className="space-y-2">
-                         {/* Instructions */}
-                         <div className="text-center">
-                           <p className="text-xs text-purple-700 mb-2">
-                             Click on any card (yours or opponents') to spy on it
-                           </p>
-                           {spyTargetPlayerId && spyTargetCardIndex !== null && (
-                             <p className="text-xs text-green-600 font-medium">
-                               ✓ Card selected. Ready to spy!
-                             </p>
-                           )}
-                         </div>
-
-                         {/* Execute Spy Button */}
-                         <div className="flex space-x-1 pt-2">
-                           <button
-                             onClick={handleExecuteSpy}
-                             disabled={!spyTargetPlayerId || spyTargetCardIndex === null}
-                             className="flex-1 bg-green-600 text-white py-1 px-2 rounded text-xs hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                           >
-                             Spy on Card
-                           </button>
-                           <button
-                             onClick={handleSkipTrick}
-                             className="flex-1 bg-gray-500 text-white py-1 px-2 rounded text-xs hover:bg-gray-600"
-                           >
-                             Skip
-                           </button>
-                         </div>
-                       </div>
-                     )}
-                  </div>
-                )}
-
-
-
-                {/* Pablo Window Display */}
-                {isPabloWindow && currentPlayer?.id === (gameState.lastAction as any)?.playerId && (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-2 mb-2">
-                    <h4 className="font-semibold text-red-800 mb-1 text-sm">Pablo Window - {pabloCountdown}s</h4>
-                    <p className="text-xs text-red-700 text-center mb-2">
-                      Call Pablo or skip to end turn
-                    </p>
-                    <div className="space-y-1">
-                      <button
-                        onClick={handleCallPablo}
-                        className="w-full flex items-center justify-center space-x-1 px-3 py-1.5 bg-red-600 text-white rounded text-sm hover:bg-red-700 transition-colors"
-                      >
-                        <SkipForward size={14} />
-                        <span>Call Pablo Now!</span>
-                      </button>
-                      <button
-                        onClick={handleSkipPablo}
-                        className="w-full flex items-center justify-center space-x-1 px-3 py-1.5 bg-gray-600 text-white rounded text-sm hover:bg-gray-700 transition-colors"
-                      >
-                        <SkipForward size={14} />
-                        <span>Skip Pablo - End Turn</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
-            </div>
-          </div>
-
-                     
-
-                     
-
-  
-
-
-        </div>
-      </div>
-
-             {/* Incoming Card Display */}
-       {showIncomingCard && incomingCard && (
-         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-             <h3 className="text-lg font-bold mb-4 text-center">
-               {activeTrick?.type === 'spy' ? 'Spied Card' : 'Incoming Card'}
-             </h3>
-             <div className="text-center mb-4">
-               <div className={`inline-block rounded-lg p-4 ${
-                 activeTrick?.type === 'spy' 
-                   ? 'bg-blue-100 border-2 border-blue-500' 
-                   : 'bg-red-100 border-2 border-red-500'
-               }`}>
-                 <div className={`font-bold text-xl ${
-                   activeTrick?.type === 'spy' ? 'text-blue-600' : 'text-red-600'
-                 }`}>
-                   {formatCardDisplay(incomingCard)}
-                 </div>
-               </div>
-             </div>
-             <p className="text-center text-gray-600">
-               {activeTrick?.type === 'spy' 
-                 ? 'You spied on this card. It will be hidden in 2 seconds...' 
-                 : 'This card will be swapped in 2 seconds...'}
-             </p>
-           </div>
-         </div>
-               )}
-       
-        
-      </div>
-    );
-  }
+      {/* Footer */}
+      <GameFooter />
+    </div>
+  );
+}

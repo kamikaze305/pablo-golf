@@ -213,14 +213,14 @@ Capacity & Limits (tailored to your laptop)
 
 Your Acer Predator Helios Neo 16 (i7-14700HX, 20c/28t; RTX 4050) has ample headroom. Socket.IO’s practical ceiling on a single node is often thousands of idle connections, but real limits come from OS file-descriptor caps and router/LAN. For smooth play testing:
 
-Recommended cap: up to 20 rooms × 5 players (≈100 concurrent clients) without breaking a sweat.
+Recommended cap: up to 20 rooms × 6 players (≈120 concurrent clients) without breaking a sweat.
 
-Stretch goal (LAN-only): 50 rooms × 5 players (~250 clients) with tuned ulimit -n, Node memory flags, and wired Ethernet.
+Stretch goal (LAN-only): 50 rooms × 6 players (~300 clients) with tuned ulimit -n, Node memory flags, and wired Ethernet.
 
 Absolute upper bounds on a single instance can reach 10k+ connections with tuning, but that’s overkill here and network-bound anyway. Use these caps and expose them as envs:
 
 MAX_ROOMS=50
-MAX_PLAYERS_PER_ROOM=5
+MAX_PLAYERS_PER_ROOM=6
 MAX_CONNECTIONS=300
 
 

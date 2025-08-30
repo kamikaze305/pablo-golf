@@ -61,6 +61,10 @@ export interface GameSettings {
   autosaveRoundState: boolean;
   // New setting for special trick cards
   specialTricksEnabled: boolean;
+  // New configurable settings
+  cardsPerPlayer: number;
+  cardsGridColumns: number;
+  cardsGridRows: number;
 }
 
 export interface RoomSettings extends GameSettings {

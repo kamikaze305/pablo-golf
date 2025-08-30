@@ -6,8 +6,14 @@ export { PabloGameEngine } from './gameEngine.js';
 export * from './cards.js';
 // RNG utilities
 export * from './rng.js';
+// Configuration
+export * from './config.js';
+
 // Trick card utilities
 export * from './trickCards.js';
+
+// Import config for default settings
+import { GAME_CONFIG } from './config.js';
 
 // Default settings
 export const DEFAULT_GAME_SETTINGS = {
@@ -18,10 +24,14 @@ export const DEFAULT_GAME_SETTINGS = {
         K: 10
     },
     matchingRule: true,
-    targetScore: 100,
+    targetScore: GAME_CONFIG.DEFAULT_TARGET_SCORE,
     revealOnDisconnect: false,
-    maxPlayers: 5,
+    maxPlayers: GAME_CONFIG.MAX_PLAYERS,
     scoreboardCarryover: true,
     autosaveRoundState: true,
-    specialTricksEnabled: true
+    specialTricksEnabled: true,
+    // New configurable settings
+    cardsPerPlayer: GAME_CONFIG.CARDS_PER_PLAYER,
+    cardsGridColumns: GAME_CONFIG.CARDS_GRID_COLUMNS,
+    cardsGridRows: GAME_CONFIG.CARDS_GRID_ROWS
 };

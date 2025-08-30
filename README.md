@@ -67,7 +67,7 @@ Players aim to have the lowest score at the end of each round. The game ends whe
 - **Matching Rule**: Replace multiple known matches with one drawn card (default: On)
 - **Target Score**: Points to end game (default: 100)
 - **Reveal on Disconnect**: Show cards when player disconnects (default: Off)
-- **Max Players**: 2-5 (default: 5)
+- **Max Players**: 2-4 (default: 4)
 
 #### Persistence
 - **Scoreboard Carryover**: Keep scores between rounds (default: On)
@@ -87,12 +87,21 @@ Players aim to have the lowest score at the end of each round. The game ends whe
 - **Server-Authoritative**: All game logic validated server-side
 - **Responsive Design**: Works on desktop and mobile
 - **PWA Support**: Offline capabilities for local play
+- **Enhanced UX**: Multiple feedback methods for user actions (visual, haptic, audio suggestions)
 
 ### Security & Fair Play
 - **Hidden Cards**: Only stored server-side, clients get placeholders
 - **Private Peeks**: Per-player secrets, never broadcast
 - **Server Validation**: All moves validated server-side
 - **Deterministic Shuffling**: Seeded Fisher-Yates shuffle per round
+
+### User Experience Features
+- **Copy Link Feedback**: Multiple feedback methods when copying room invite links:
+  - **Visual**: Button color changes to green, scales up, shows checkmark
+  - **Haptic**: Vibration feedback on supported devices
+  - **Text**: "Copied!" message appears below button
+  - **Animation**: Smooth transitions and bounce effects
+  - **Audio Suggestions**: Future implementation for sound feedback
 
 ## Deployment
 
@@ -129,7 +138,7 @@ QA_IP_ALLOWLIST=127.0.0.1,::1
 DEFAULT_JOKERS=on
 DEFAULT_MATCHING_RULE=on
 MAX_ROOMS=50
-MAX_PLAYERS_PER_ROOM=5
+MAX_PLAYERS_PER_ROOM=4
 MAX_CONNECTIONS=300
 ```
 
