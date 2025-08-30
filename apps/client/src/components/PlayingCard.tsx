@@ -43,21 +43,21 @@ export function PlayingCard({
   const cardClasses = `
     ${baseClasses}
     ${isSelected ? 'border-blue-500 bg-blue-50 shadow-md' : ''}
-    ${isHidden ? 'border-gray-400 bg-gradient-to-br from-red-300 to-red-400' : 'border-gray-300 bg-white'}
+    ${isHidden ? 'border-gray-400 bg-gradient-to-br from-red-200 to-red-300' : 'border-gray-300 bg-white'}
     ${onClick ? 'hover:border-blue-400 hover:bg-blue-50' : ''}
     ${className}
   `;
 
-  if (isHidden === true) {
+  if (isHidden === true || (card && (card.suit === 'hidden' || card.rank === 'hidden'))) {
     return (
       <div className={cardClasses} onClick={onClick}>
         {/* Card Back Design - CSS only */}
-        <div className="w-full h-full bg-gradient-to-br from-red-300 to-red-400 relative">
+        <div className="w-full h-full bg-gradient-to-br from-red-200 to-red-300 relative">
           <div className="absolute inset-0 opacity-20">
             <div className="w-full h-full" style={{backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(255,255,255,0.1) 2px, rgba(255,255,255,0.1) 4px)'}}></div>
           </div>
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="text-white text-lg font-bold opacity-80">♠</div>
+            <div className="text-white text-2xl font-bold opacity-80">♠</div>
           </div>
           <div className="absolute top-1 left-1 w-3 h-3 border-l-2 border-t-2 border-white opacity-60"></div>
           <div className="absolute top-1 right-1 w-3 h-3 border-r-2 border-t-2 border-white opacity-60"></div>
@@ -77,9 +77,12 @@ export function PlayingCard({
 
   if (!card) {
     return (
-      <div className={`${baseClasses} bg-gray-100 border-gray-200 ${className}`}>
-        <div className="text-gray-400 text-xs flex items-center justify-center h-full">
-          Empty
+      <div className={`${baseClasses} bg-gray-100 border-gray-300 border-dashed ${className}`}>
+        {/* Empty slot - visible with dashed border and "Empty" text */}
+        <div className="flex items-center justify-center h-full">
+          <div className="text-center text-gray-500">
+            <div className="text-xs font-medium">Empty</div>
+          </div>
         </div>
       </div>
     );
@@ -105,17 +108,17 @@ export function PlayingCard({
 
   return (
     <div className={cardClasses} onClick={onClick}>
-      {/* Top left corner */}
+      {/* Top left corner - suit icon only */}
       <div className={`absolute top-1 left-1 text-xs font-bold ${suitColor}`}>
-        <div>{suitIcon}</div>
+        {suitIcon}
       </div>
       
-      {/* Bottom right corner */}
+      {/* Bottom right corner - suit icon only */}
       <div className={`absolute bottom-1 right-1 text-xs font-bold ${suitColor}`}>
-        <div>{suitIcon}</div>
+        {suitIcon}
       </div>
       
-      {/* Center content */}
+      {/* Center content - rank only */}
       <div className="flex items-center justify-center h-full">
         <div className={`text-center ${suitColor}`}>
           <div className="font-bold text-sm">{card.rank}</div>

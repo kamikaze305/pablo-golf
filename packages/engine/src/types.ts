@@ -118,15 +118,12 @@ export type GameAction =
   | { type: 'executeSpy'; playerId: string; spyAction: SpyAction }
   | { type: 'skipTrick'; playerId: string }
 
-
 export interface GameResult {
   playerScores: { [playerId: string]: number };
   roundDeltas: { [playerId: string]: number };
   winner?: string;
   pabloBonus?: { playerId: string; bonus: number };
 }
-
-
 
 export interface RNG {
   seed: number;

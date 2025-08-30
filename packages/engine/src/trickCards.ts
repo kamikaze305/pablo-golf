@@ -60,11 +60,11 @@ export function validateSwapAction(
   }
 
   // Validate card indices
-  if (swapAction.sourceCardIndex < 0 || swapAction.sourceCardIndex >= 4) {
+  if (swapAction.sourceCardIndex < 0 || swapAction.sourceCardIndex >= 6) {
     return { isValid: false, error: 'Invalid source card index' };
   }
 
-  if (swapAction.targetCardIndex < 0 || swapAction.targetCardIndex >= 4) {
+  if (swapAction.targetCardIndex < 0 || swapAction.targetCardIndex >= 6) {
     return { isValid: false, error: 'Invalid target card index' };
   }
 
@@ -96,7 +96,7 @@ export function validateSpyAction(
   }
 
   // Validate card index
-  if (spyAction.targetCardIndex < 0 || spyAction.targetCardIndex >= 4) {
+  if (spyAction.targetCardIndex < 0 || spyAction.targetCardIndex >= 6) {
     return { isValid: false, error: 'Invalid target card index' };
   }
 

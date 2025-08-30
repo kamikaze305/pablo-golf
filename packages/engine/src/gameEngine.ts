@@ -14,7 +14,7 @@ export class PabloGameEngine {
       ...p,
       // Keep original player name, only set shortId
       shortId: `${roomKey}#${index + 1}`,
-      cards: [null, null, null, null],
+      cards: [null, null, null, null, null, null], // 6 cards with 2 empty slots
       roundScore: 0
     }));
 
@@ -52,7 +52,7 @@ export class PabloGameEngine {
         ...player,
         // Keep original player name, only set shortId
         shortId: `${roomKey}#${playerNumber}`,
-        cards: [null, null, null, null],
+        cards: [null, null, null, null, null, null], // 6 cards with 2 empty slots
         roundScore: 0
       });
     }
@@ -68,39 +68,42 @@ export class PabloGameEngine {
     
     if (!player) return state;
 
-    // Check if current player is disconnected and skip if needed
-    if (state.gamePhase === 'playing' && state.currentPlayerIndex !== undefined) {
-      const currentPlayer = state.players[state.currentPlayerIndex];
-      if (!currentPlayer.isConnected) {
-        // Skip to next connected player
-        const totalPlayers = state.players.length;
-        let nextIndex = (state.currentPlayerIndex + 1) % totalPlayers;
-        
-        while (nextIndex !== state.currentPlayerIndex) {
-          if (state.players[nextIndex].isConnected) {
-            state.currentPlayerIndex = nextIndex;
-            state.lastAction = undefined; // Clear any pending actions
-            break;
+            // Check if current player is disconnected and skip if needed
+        if (state.gamePhase === 'playing' && state.currentPlayerIndex !== undefined) {
+          const currentPlayer = state.players[state.currentPlayerIndex];
+          if (!currentPlayer.isConnected) {
+            // Skip to next connected player
+            const totalPlayers = state.players.length;
+            let nextIndex = (state.currentPlayerIndex + 1) % totalPlayers;
+            
+            while (nextIndex !== state.currentPlayerIndex) {
+              if (state.players[nextIndex].isConnected) {
+                state.currentPlayerIndex = nextIndex;
+                // Don't clear lastAction here as it may contain important game state
+                break;
+              }
+              nextIndex = (nextIndex + 1) % totalPlayers;
+            }
           }
-          nextIndex = (nextIndex + 1) % totalPlayers;
         }
-      }
-    }
 
     // Show all cards when round ends or game is finished
     if (state.gamePhase === 'roundEnd' || state.gamePhase === 'finished' || state.gamePhase === 'scored') {
       return state; // Return full state with all cards visible
     }
 
-    // Handle peeking phase - show only peeked cards for the current player
+    // Handle peeking phase - show only peeked cards for the current player (first 4 cards only)
     if (state.gamePhase === 'peeking') {
       state.players = state.players.map(p => {
         if (p.id === playerId) {
-          // For current player, show only peeked cards
+          // For current player, show only peeked cards from first 4 positions
           const playerPeekedCards = state.peekedCards?.[playerId] || [];
           return {
             ...p,
             cards: p.cards.map((card, index) => {
+              // Only show first 4 positions during peeking (hide the 2 empty slots)
+              if (index >= 4) return null;
+              
               if (!card) return null;
               if (playerPeekedCards.includes(index)) {
                 return card; // Show peeked cards
@@ -147,10 +150,7 @@ export class PabloGameEngine {
           } : null)
         };
       } else {
-        // For other players, always hide cards unless they're disconnected
-        if (!p.isConnected) {
-          return p; // Show cards for disconnected players
-        }
+        // For other players, always hide cards (never reveal cards for disconnected players)
         return {
           ...p,
           cards: p.cards.map(card => card ? { 
@@ -181,7 +181,7 @@ export class PabloGameEngine {
     if (this.state.gamePhase === 'roundEnd') {
       const resetPlayers = this.state.players.map(player => ({
         ...player,
-        cards: [null, null, null, null], // Clear cards
+        cards: [null, null, null, null, null, null], // Clear cards (6 slots)
         roundScore: 0 // Reset round score
       }));
       
@@ -209,10 +209,10 @@ export class PabloGameEngine {
     const deck = createDeck(this.state.settings);
     const shuffledDeck = rng.shuffle(deck);
 
-    // Deal 4 cards to each player (2x2 grid)
+    // Deal 4 cards to each player (2x2 grid) - leaving 2 empty slots for penalty cards
     const newPlayers = this.state.players.map(player => ({
       ...player,
-      cards: shuffledDeck.splice(0, 4)
+      cards: [...shuffledDeck.splice(0, 4), null, null] // 4 cards + 2 empty slots
     }));
 
     this.state = {
@@ -391,7 +391,6 @@ export class PabloGameEngine {
 
       // Check if all players have had their final turn
       if (updatedFinalTurnPlayers.length >= this.state.players.length) {
-        console.log('Engine: All players have had their final turn, ending round');
         return this.endRound();
       }
     } else {
@@ -478,7 +477,6 @@ export class PabloGameEngine {
 
       // Check if all players have had their final turn
       if (updatedFinalTurnPlayers.length >= this.state.players.length) {
-        console.log('Engine: All players have had their final turn, ending round');
         return this.endRound();
       }
     } else {
@@ -498,16 +496,6 @@ export class PabloGameEngine {
   }
 
   private handlePabloWindow(action: Extract<GameAction, { type: 'pabloWindow' }>): GameState {
-    console.log('Engine: handlePabloWindow called with action:', action);
-    console.log('Engine: Current state before pabloWindow:', {
-      currentPlayerIndex: this.state.currentPlayerIndex,
-      currentPlayerId: this.state.players[this.state.currentPlayerIndex]?.id,
-      lastAction: this.state.lastAction,
-      gamePhase: this.state.gamePhase,
-      pabloCalled: this.state.pabloCalled,
-      finalRoundStarted: this.state.finalRoundStarted,
-      playersWhoHadFinalTurn: this.state.playersWhoHadFinalTurn
-    });
 
     if (this.state.gamePhase !== 'playing') {
       throw new Error('Cannot start Pablo window: game is not in playing phase');
@@ -515,7 +503,6 @@ export class PabloGameEngine {
 
     const currentPlayer = this.state.players[this.state.currentPlayerIndex];
     if (currentPlayer.id !== action.playerId) {
-      console.log('Engine: Player mismatch - current player:', currentPlayer.id, 'action player:', action.playerId);
       throw new Error('Not your turn');
     }
 
@@ -527,12 +514,8 @@ export class PabloGameEngine {
         updatedFinalTurnPlayers.push(currentPlayer.id);
       }
 
-      console.log('Engine: Final round - players who had final turn:', updatedFinalTurnPlayers);
-      console.log('Engine: Total players:', this.state.players.length);
-
       // Check if all players have had their final turn
       if (updatedFinalTurnPlayers.length >= this.state.players.length) {
-        console.log('Engine: All players have had their final turn, ending round');
         // End the round immediately
         return this.endRound();
       }
@@ -540,8 +523,6 @@ export class PabloGameEngine {
 
     // Move to next player after Pablo window
     const nextPlayerIndex = (this.state.currentPlayerIndex + 1) % this.state.players.length;
-    console.log('Engine: Moving from player index', this.state.currentPlayerIndex, 'to', nextPlayerIndex);
-
     this.state = {
       ...this.state,
       currentPlayerIndex: nextPlayerIndex,
@@ -550,12 +531,6 @@ export class PabloGameEngine {
         [...this.state.playersWhoHadFinalTurn, currentPlayer.id] : 
         this.state.playersWhoHadFinalTurn
     };
-
-    console.log('Engine: State after pabloWindow:', {
-      currentPlayerIndex: this.state.currentPlayerIndex,
-      lastAction: this.state.lastAction,
-      playersWhoHadFinalTurn: this.state.playersWhoHadFinalTurn
-    });
 
     return this.getState();
   }
@@ -616,7 +591,7 @@ export class PabloGameEngine {
 
     // If Pablo hasn't been called yet, start the final round
     if (!this.state.pabloCalled) {
-      console.log(`Engine: Pablo called by ${action.playerId}, starting final round`);
+      // Pablo called, starting final round
       
       // Move to next player immediately after Pablo is called
       const nextPlayerIndex = (this.state.currentPlayerIndex + 1) % this.state.players.length;
@@ -725,7 +700,7 @@ export class PabloGameEngine {
     // Reset all game state but keep players and room settings
     const resetPlayers = this.state.players.map(player => ({
       ...player,
-      cards: [null, null, null, null], // Clear cards
+      cards: [null, null, null, null, null, null], // Clear cards (6 slots)
       totalScore: 0, // Reset total score
       roundScore: 0 // Reset round score
     }));

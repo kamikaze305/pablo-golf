@@ -1,19 +1,33 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useGameStore } from '../stores/gameStore';
 import { PlayingCard } from '../components/PlayingCard';
 import { 
   ArrowUpCircle, 
   ArrowDownCircle, 
   RotateCcw, 
-  MessageSquare, 
   Trophy,
-  LogOut,
+
   Play,
   SkipForward,
-  Volume2,
-  VolumeX
+
 } from 'lucide-react';
+
+// Helper function to format card display names with proper suit symbols
+const formatCardDisplay = (card: any): string => {
+  if (!card) return 'Empty';
+  if (card.isJoker) return `JOKER (${card.value})`;
+  
+  const suitSymbols = {
+    hearts: '♥',
+    diamonds: '♦',
+    clubs: '♣',
+    spades: '♠'
+  };
+  
+  const suitSymbol = suitSymbols[card.suit as keyof typeof suitSymbols] || card.suit;
+  return `${card.rank} ${suitSymbol} (${card.value})`;
+};
 
 export function GamePage() {
   const { roomId } = useParams();
@@ -25,23 +39,19 @@ export function GamePage() {
     roomId: storeRoomId,
     executeAction,
     leaveRoom,
-    sendChatMessage,
     isLoading
   } = useGameStore();
 
-    const [chatMessage, setChatMessage] = useState('');
+  
   const [selectedCardIndex, setSelectedCardIndex] = useState<number | null>(null);
-  const [showChat, setShowChat] = useState(false);
+
   const [pabloTimer, setPabloTimer] = useState<number | null>(null);
   const [pabloCountdown, setPabloCountdown] = useState<number>(15);
   const [lastReplacedCard, setLastReplacedCard] = useState<{playerId: string, cardIndex: number} | null>(null);
   
 
   
-  // Background music state
-  const [isMusicPlaying, setIsMusicPlaying] = useState(false);
-  const [isMusicMuted, setIsMusicMuted] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+
 
 
   // Calculate game state variables
@@ -71,6 +81,8 @@ export function GamePage() {
   const [showIncomingCard, setShowIncomingCard] = useState<boolean>(false);
   const [incomingCard, setIncomingCard] = useState<any>(null);
 
+
+
   // Debug logging (only in development)
   if (import.meta.env.DEV) {
     console.log('GamePage: Component rendered');
@@ -83,37 +95,7 @@ export function GamePage() {
     }
   }, [storeRoomId, isLoading, navigate]);
 
-  // Background music setup
-  useEffect(() => {
-    if (!audioRef.current) {
-      audioRef.current = new Audio('/bg_music.mp3');
-      audioRef.current.loop = true;
-      audioRef.current.volume = 0.3;
-    }
 
-    // Start playing when game starts
-    if (gameState?.gamePhase === 'playing' && !isMusicPlaying) {
-      audioRef.current.play().then(() => {
-        setIsMusicPlaying(true);
-      }).catch((error) => {
-        console.log('Could not autoplay music:', error);
-      });
-    }
-
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-    };
-  }, [gameState?.gamePhase, isMusicPlaying]);
-
-  // Handle music mute/unmute
-  useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.muted = isMusicMuted;
-    }
-  }, [isMusicMuted]);
 
   // Trick card state handling
   useEffect(() => {
@@ -134,7 +116,9 @@ export function GamePage() {
        setShowIncomingCard(false);
        setIncomingCard(null);
      }
-  }, [isTrickActive, isMyTrick, activeTrick, gameState?.gamePhase, gameState?.lastAction]);
+     
+
+      }, [isTrickActive, isMyTrick, activeTrick, gameState?.gamePhase, gameState?.lastAction]);
 
   // Auto-connect and auto-reconnect when component mounts
   useEffect(() => {
@@ -161,20 +145,17 @@ export function GamePage() {
     attemptReconnection();
   }, [isConnected, storeRoomId, isLoading]);
 
+
+
+
+
   // Pablo window timer
   useEffect(() => {
-    console.log('GamePage: Pablo window timer effect triggered');
-    console.log('GamePage: isPabloWindow =', isPabloWindow);
-    console.log('GamePage: currentPlayer?.id =', currentPlayer?.id);
-    console.log('GamePage: gameState?.lastAction =', gameState?.lastAction);
-    
-         if (isPabloWindow && currentPlayer?.id && !gameState?.finalRoundStarted) {
-      console.log('GamePage: Starting Pablo window timer');
+    if (isPabloWindow && currentPlayer?.id && !gameState?.finalRoundStarted) {
       setPabloCountdown(15);
       
       const countdownInterval = setInterval(() => {
         setPabloCountdown(prev => {
-          console.log('GamePage: Countdown tick, prev:', prev);
           if (prev <= 1) {
             clearInterval(countdownInterval);
             return 1; // Keep it at 1 second instead of 0
@@ -184,18 +165,10 @@ export function GamePage() {
       }, 1000);
       
       const timer = setTimeout(() => {
-        console.log('GamePage: Pablo window expired, moving to next player');
-        console.log('GamePage: Current player ID:', currentPlayer.id);
-        console.log('GamePage: Current game state before pabloWindow action:', {
-          currentPlayerIndex: gameState?.currentPlayerIndex,
-          lastAction: gameState?.lastAction,
-          isPabloWindow: gameState?.lastAction?.type === 'pabloWindow'
-        });
         clearInterval(countdownInterval);
         executeAction({ type: 'pabloWindow', playerId: currentPlayer.id });
         setPabloTimer(null);
         setPabloCountdown(15);
-        console.log('GamePage: Pablo window action executed');
       }, 15000); // 15 seconds
       
       setPabloTimer(timer);
@@ -207,12 +180,11 @@ export function GamePage() {
         setPabloCountdown(15);
       };
     } else if (pabloTimer) {
-      console.log('GamePage: Clearing Pablo timer because conditions not met');
       clearTimeout(pabloTimer);
       setPabloTimer(null);
       setPabloCountdown(15);
     }
-     }, [isPabloWindow, currentPlayer?.id, executeAction]);
+  }, [isPabloWindow, currentPlayer?.id, executeAction]);
 
 
 
@@ -222,15 +194,7 @@ export function GamePage() {
      // Debug state changes (only in development)
    useEffect(() => {
      if (import.meta.env.DEV) {
-       console.log('GamePage: State change detected:', {
-         currentPlayerIndex: gameState?.currentPlayerIndex,
-         lastAction: gameState?.lastAction,
-         isPabloWindow: gameState?.lastAction?.type === 'pabloWindow',
-         currentPlayerId: currentPlayer?.id,
-         isMyTurn: isMyTurn,
-         canDraw: canDraw,
-         canCallPablo: canCallPablo
-       });
+       // Add state change logging here when needed
      }
    }, [gameState?.currentPlayerIndex, gameState?.lastAction, currentPlayer?.id, isMyTurn, canDraw, canCallPablo]);
 
@@ -241,12 +205,37 @@ export function GamePage() {
      }
    }, [isMyTurn, selectedCardIndex]);
 
-   // Clear selection when game phase changes
-   useEffect(() => {
-     if (gameState?.gamePhase !== 'playing' && selectedCardIndex !== null) {
-       setSelectedCardIndex(null);
-     }
-   }, [gameState?.gamePhase, selectedCardIndex]);
+     // Clear selection when game phase changes
+  useEffect(() => {
+    if (gameState?.gamePhase !== 'playing' && selectedCardIndex !== null) {
+      setSelectedCardIndex(null);
+    }
+  }, [gameState?.gamePhase, selectedCardIndex]);
+
+  // Check connection status and redirect if disconnected
+  useEffect(() => {
+    if (!isConnected && gameState) {
+      // Clear any pending actions
+      setSelectedCardIndex(null);
+      setSwapSourceCardIndex(null);
+      setSwapTargetPlayerId('');
+      setSwapTargetCardIndex(null);
+      setSpyTargetPlayerId('');
+      setSpyTargetCardIndex(null);
+      setShowIncomingCard(false);
+      setIncomingCard(null);
+
+      
+      // Redirect to landing page with error message
+      navigate('/', { 
+        state: { 
+          error: 'Connection to the game server was lost. Please try to rejoin the game.' 
+        } 
+      });
+    }
+  }, [isConnected, gameState, navigate]);
+
+
 
   const handleStartRound = () => {
     executeAction({ type: 'startRound' });
@@ -265,13 +254,7 @@ export function GamePage() {
   };
 
   const handleReplaceCard = () => {
-    console.log('GamePage: handleReplaceCard called');
-    console.log('GamePage: selectedCardIndex =', selectedCardIndex);
-    console.log('GamePage: lastAction =', gameState?.lastAction);
-    console.log('GamePage: currentPlayer?.id =', currentPlayer?.id);
-    
     if (selectedCardIndex !== null && gameState?.lastAction?.type === 'draw' && currentPlayer?.id) {
-      console.log('GamePage: Executing replace action');
       // Track the replaced card for highlighting
       setLastReplacedCard({ playerId: currentPlayer.id, cardIndex: selectedCardIndex });
       
@@ -286,68 +269,45 @@ export function GamePage() {
       setTimeout(() => {
         setLastReplacedCard(null);
       }, 3000);
-    } else {
-      console.log('GamePage: Replace conditions not met');
     }
   };
 
   const handleDiscardCard = () => {
-    console.log('GamePage: handleDiscardCard called');
-    console.log('GamePage: lastAction =', gameState?.lastAction);
-    console.log('GamePage: currentPlayer?.id =', currentPlayer?.id);
-    
     if (gameState?.lastAction?.type === 'draw' && currentPlayer?.id) {
-      console.log('GamePage: Executing discard action');
       executeAction({ 
         type: 'discard', 
         playerId: currentPlayer.id
       });
-    } else {
-      console.log('GamePage: Discard conditions not met');
     }
   };
 
   const handleCallPablo = () => {
-    console.log('GamePage: handleCallPablo called');
-    console.log('GamePage: currentPlayer?.id =', currentPlayer?.id);
     if (currentPlayer?.id) {
-      console.log('GamePage: Executing callPablo action');
       executeAction({ type: 'callPablo', playerId: currentPlayer.id });
-    } else {
-      console.log('GamePage: No currentPlayer.id available');
     }
   };
 
   const handleSkipPablo = () => {
-    console.log('GamePage: handleSkipPablo called');
-    console.log('GamePage: currentPlayer?.id =', currentPlayer?.id);
     if (currentPlayer?.id) {
-      console.log('GamePage: Executing pabloWindow action (skip)');
       executeAction({ type: 'pabloWindow', playerId: currentPlayer.id });
-    } else {
-      console.log('GamePage: No currentPlayer.id available');
     }
   };
 
   const handlePeekCard = (cardIndex: number) => {
-    console.log('GamePage: handlePeekCard called for card index:', cardIndex);
     if (currentPlayer?.id) {
-      console.log('GamePage: Executing peekCard action');
       executeAction({ type: 'peekCard', playerId: currentPlayer.id, cardIndex });
-    } else {
-      console.log('GamePage: No currentPlayer.id available');
     }
   };
 
   const handlePlayerReady = () => {
-    console.log('GamePage: handlePlayerReady called');
     if (currentPlayer?.id) {
-      console.log('GamePage: Executing playerReady action');
       executeAction({ type: 'playerReady', playerId: currentPlayer.id });
-    } else {
-      console.log('GamePage: No currentPlayer.id available');
     }
   };
+
+
+
+
 
   const handleCopyPlayerId = async () => {
     if (currentPlayer?.id) {
@@ -364,10 +324,7 @@ export function GamePage() {
 
 
 
-  const handleLeaveRoom = () => {
-    leaveRoom();
-    navigate('/');
-  };
+
 
   const handleEndGame = () => {
     if (currentPlayer?.isHost) {
@@ -375,12 +332,7 @@ export function GamePage() {
     }
   };
 
-  const handleSendChat = () => {
-    if (chatMessage.trim()) {
-      sendChatMessage(chatMessage.trim());
-      setChatMessage('');
-    }
-  };
+
 
   // Trick card handlers
   const handleExecuteSwap = () => {
@@ -449,18 +401,13 @@ export function GamePage() {
     }
   };
 
-  // Music controls
-  const toggleMusicMute = () => {
-    setIsMusicMuted(!isMusicMuted);
-  };
+
 
 
 
   // Debug logging (only in development)
   if (import.meta.env.DEV) {
-    console.log('GamePage: Turn state - isMyTurn:', isMyTurn, 'canDraw:', canDraw, 'canCallPablo:', canCallPablo, 'isPabloWindow:', isPabloWindow);
-    console.log('GamePage: Game state - phase:', gameState?.gamePhase, 'lastAction:', gameState?.lastAction);
-    console.log('GamePage: Pablo countdown:', pabloCountdown);
+    // Add debug logging here when needed
   }
 
            if (!gameState) {
@@ -477,14 +424,32 @@ export function GamePage() {
     // Host Disconnection Screen
     const hostPlayer = gameState.players.find(p => p.isHost);
     if (hostPlayer && !hostPlayer.isConnected) {
+      // Auto-redirect after 10 seconds
+      useEffect(() => {
+        const timer = setTimeout(() => {
+          leaveRoom();
+          navigate('/');
+        }, 10000);
+        
+        return () => clearTimeout(timer);
+      }, [leaveRoom, navigate]);
+
       return (
         <div className="max-w-6xl mx-auto p-6">
           <div className="bg-red-50 border border-red-200 rounded-lg shadow-md p-6 text-center">
             <div className="text-6xl mb-4">👋</div>
-            <h1 className="text-2xl font-bold text-red-800 mb-4">Host Left the Game</h1>
+            <h1 className="text-2xl font-bold text-red-800 mb-4">Host Closed the Game</h1>
             <p className="text-red-700 mb-6">
               The host ({hostPlayer.name}) has left the game. The game has ended.
             </p>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+              <p className="text-blue-800 font-medium">
+                Redirecting to landing page in 10 seconds...
+              </p>
+              <p className="text-blue-700 text-sm mt-2">
+                Create or join a room to start playing again
+              </p>
+            </div>
             <button
               onClick={() => {
                 leaveRoom();
@@ -492,7 +457,7 @@ export function GamePage() {
               }}
               className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
             >
-              Create New Game
+              Go to Landing Page Now
             </button>
           </div>
         </div>
@@ -566,7 +531,7 @@ export function GamePage() {
                   </div>
                   
                   {/* Show all cards */}
-                  <div className="grid grid-cols-2 gap-2 max-w-[120px] mx-auto mb-3">
+                  <div className="grid grid-cols-3 grid-rows-2 gap-2 max-w-[180px] mx-auto mb-3">
                     {player.cards.map((card, cardIndex) => (
                       <PlayingCard
                         key={cardIndex}
@@ -579,14 +544,17 @@ export function GamePage() {
                    <div className="text-xs text-gray-500">
                      <div className="font-medium mb-1">Final Cards:</div>
                      <div className="space-y-1">
-                       {player.cards.map((card, cardIndex) => (
-                         <div key={cardIndex} className="flex justify-between">
-                           <span>Card {cardIndex + 1}:</span>
-                           <span className="font-mono">
-                             {card ? (card.isJoker ? `JOKER (${card.value})` : `${card.rank}${card.suit} (${card.value})`) : 'Empty (0)'}
-                           </span>
-                         </div>
-                       ))}
+                       {player.cards
+                         .map((card, cardIndex) => ({ card, cardIndex }))
+                         .filter(({ card }) => card !== null)
+                         .map(({ card, cardIndex }) => (
+                           <div key={cardIndex} className="flex justify-between">
+                             <span>Card {cardIndex + 1}:</span>
+                             <span className="font-mono">
+                               {formatCardDisplay(card)}
+                             </span>
+                           </div>
+                         ))}
                      </div>
                      
                      {/* Round History */}
@@ -713,7 +681,7 @@ export function GamePage() {
                  </div>
                  
                                    {/* Show all cards */}
-                  <div className="grid grid-cols-2 gap-2 max-w-[120px] mx-auto">
+                  <div className="grid grid-cols-3 grid-rows-2 gap-2 max-w-[180px] mx-auto">
                     {player.cards.map((card, cardIndex) => (
                       <PlayingCard
                         key={cardIndex}
@@ -729,14 +697,17 @@ export function GamePage() {
                     <div className="mt-2 text-xs text-gray-500">
                       <div className="font-medium mb-1">Score Breakdown:</div>
                       <div className="space-y-1">
-                        {player.cards.map((card, cardIndex) => (
-                          <div key={cardIndex} className="flex justify-between">
-                            <span>Card {cardIndex + 1}:</span>
-                            <span className="font-mono">
-                              {card ? (card.isJoker ? `JOKER (${card.value})` : `${card.rank}${card.suit} (${card.value})`) : 'Empty (0)'}
-                            </span>
-                          </div>
-                        ))}
+                        {player.cards
+                          .map((card, cardIndex) => ({ card, cardIndex }))
+                          .filter(({ card }) => card !== null)
+                          .map(({ card, cardIndex }) => (
+                            <div key={cardIndex} className="flex justify-between">
+                              <span>Card {cardIndex + 1}:</span>
+                              <span className="font-mono">
+                                {formatCardDisplay(card)}
+                              </span>
+                            </div>
+                          ))}
                         <div className="border-t pt-1 font-medium">
                           <span>Round Total: {player.roundScore}</span>
                         </div>
@@ -814,9 +785,10 @@ export function GamePage() {
                       )}
                     </div>
                     
-                    {/* Cards Grid */}
-                    <div className="grid grid-cols-2 gap-2 max-w-[120px] mx-auto">
-                      {player.cards.map((card, cardIndex) => {
+                    {/* Cards Grid - Only show first 4 cards during peeking, last 2 as blank slots */}
+                    <div className="grid grid-cols-3 grid-rows-2 gap-2 max-w-[180px] mx-auto">
+                      {/* First 4 cards (the dealt cards) */}
+                      {player.cards.slice(0, 4).map((card, cardIndex) => {
                         const isPeeked = playerPeekedCards.includes(cardIndex);
                         const isMyCard = isCurrentPlayer;
                         const canClick = isMyCard && canPeekMore && !isPeeked;
@@ -842,6 +814,13 @@ export function GamePage() {
                           </div>
                         );
                       })}
+                      
+                      {/* Last 2 positions as blank slots */}
+                      {Array.from({ length: 2 }, (_, index) => (
+                        <div key={`blank-${index + 4}`} className="w-16 h-24 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center bg-gray-50">
+                          <span className="text-gray-400 text-xs">Empty</span>
+                        </div>
+                      ))}
                     </div>
                     
                     {isCurrentPlayer && (
@@ -874,14 +853,20 @@ export function GamePage() {
                 <div className="text-center">
                   <button
                     onClick={handlePlayerReady}
-                    disabled={currentPlayerPeekedCards.length < 2}
+                    disabled={currentPlayerPeekedCards.length < 2 || (gameState.readyPlayers || []).includes(currentPlayer.id)}
                     className={`px-6 py-2 rounded-lg font-semibold transition-colors ${
-                      currentPlayerPeekedCards.length >= 2
+                      (gameState.readyPlayers || []).includes(currentPlayer.id)
+                        ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
+                        : currentPlayerPeekedCards.length >= 2
                         ? 'bg-green-500 hover:bg-green-600 text-white'
                         : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                     }`}
                   >
-                    {currentPlayerPeekedCards.length >= 2 ? 'Ready!' : `Peek ${2 - currentPlayerPeekedCards.length} more card${2 - currentPlayerPeekedCards.length === 1 ? '' : 's'}`}
+                    {(gameState.readyPlayers || []).includes(currentPlayer.id) 
+                      ? '✓ Ready - Waiting for others...' 
+                      : currentPlayerPeekedCards.length >= 2 
+                      ? 'Ready!' 
+                      : `Peek ${2 - currentPlayerPeekedCards.length} more card${2 - currentPlayerPeekedCards.length === 1 ? '' : 's'}`}
                   </button>
                 </div>
               )}
@@ -965,21 +950,6 @@ export function GamePage() {
               </p>
            </div>
           <div className="flex items-center space-x-4">
-            <div className="text-right">
-              <p className="text-sm text-gray-600">Connected Players</p>
-              <p className="font-semibold">{gameState.players.filter(p => p.isConnected).length}/{gameState.players.length}</p>
-            </div>
-            
-            {/* Music Control */}
-            <button
-              onClick={toggleMusicMute}
-              className="flex items-center justify-center space-x-2 px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-              title={isMusicMuted ? "Unmute background music" : "Mute background music"}
-            >
-              {isMusicMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
-              <span className="text-sm">{isMusicMuted ? "Unmute" : "Mute"}</span>
-            </button>
-            
             {currentPlayer?.isHost && (
               <button
                 onClick={handleEndGame}
@@ -990,13 +960,6 @@ export function GamePage() {
                 <span>End Game</span>
               </button>
             )}
-            <button
-              onClick={handleLeaveRoom}
-              className="flex items-center justify-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-            >
-              <LogOut size={16} />
-              <span>Leave Room</span>
-            </button>
           </div>
         </div>
       </div>
@@ -1055,8 +1018,8 @@ export function GamePage() {
                           </div>
                         </div>
                        
-                                               {/* Cards Grid - Compact */}
-                                                 <div className="grid grid-cols-2 gap-1 max-w-[120px] mx-auto">
+                                                                 {/* Cards Grid - Compact */}
+                  <div className="grid grid-cols-3 grid-rows-2 gap-1 max-w-[180px] mx-auto">
                            {player.cards.map((card, cardIndex) => {
                              const isMyCard = currentPlayer?.id === player.id;
                              const isHidden = card && card.suit === 'hidden';
@@ -1152,6 +1115,8 @@ export function GamePage() {
                                       SPY TARGET
                                     </div>
                                   )}
+                                  
+
                                </div>
                              );
                            })}
@@ -1237,6 +1202,10 @@ export function GamePage() {
                       <ArrowUpCircle size={14} />
                       <span>Draw from Discard</span>
                     </button>
+                    
+                    
+                     
+                      
                   </>
                 )}
               
@@ -1383,6 +1352,8 @@ export function GamePage() {
                   </div>
                 )}
 
+
+
                 {/* Pablo Window Display */}
                 {isPabloWindow && currentPlayer?.id === (gameState.lastAction as any)?.playerId && (
                   <div className="bg-red-50 border border-red-200 rounded-lg p-2 mb-2">
@@ -1413,106 +1384,11 @@ export function GamePage() {
 
                      
 
-                     {/* Chat */}
-           <div className="bg-white rounded-lg shadow-md p-3">
-             <div className="flex items-center justify-between mb-2">
-               <h3 className="font-semibold text-sm">Chat</h3>
-               <button
-                 onClick={() => setShowChat(!showChat)}
-                 className="flex items-center space-x-1 text-gray-600 hover:text-gray-800 text-sm"
-               >
-                 <MessageSquare size={14} />
-                 <span>{showChat ? 'Hide' : 'Show'}</span>
-               </button>
-             </div>
-             
-             {showChat && (
-               <div className="space-y-2">
-                 <div className="h-24 bg-gray-50 rounded border p-2 text-xs text-gray-600 overflow-y-auto">
-                   <p>Chat messages will appear here...</p>
-                 </div>
-                 <div className="flex space-x-2">
-                   <input
-                     type="text"
-                     value={chatMessage}
-                     onChange={(e) => setChatMessage(e.target.value)}
-                     onKeyPress={(e) => e.key === 'Enter' && handleSendChat()}
-                     placeholder="Type a message..."
-                     className="flex-1 px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-                   />
-                   <button
-                     onClick={handleSendChat}
-                     className="px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 transition-colors"
-                   >
-                     Send
-                   </button>
-                 </div>
-               </div>
-             )}
-           </div>
+                     
 
-           {/* Players List */}
-           <div className="bg-white rounded-lg shadow-md p-3">
-             <h3 className="font-semibold mb-2 text-sm">Connected Players</h3>
-             <div className="space-y-2">
-               {gameState.players.map((player) => (
-                 <div key={player.id} className="flex items-center justify-between p-2 bg-gray-50 rounded text-sm">
-                   <div className="flex items-center space-x-2">
-                     <div className={`w-2 h-2 rounded-full ${player.isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                     <div>
-                                               <div className={`font-medium text-xs ${!player.isConnected ? 'text-gray-500' : 'text-gray-900'}`}>
-                          {player.name}
-                          {player.isHost && <span className="ml-1 text-xs bg-blue-100 text-blue-800 px-1 py-0.5 rounded">H</span>}
-                          {gameState.currentPlayerIndex !== undefined && 
-                           gameState.players[gameState.currentPlayerIndex]?.id === player.id && 
-                           <span className="ml-1 text-xs bg-yellow-100 text-yellow-800 px-1 py-0.5 rounded">T</span>}
-                          {!player.isConnected && <span className="ml-1 text-xs bg-red-100 text-red-800 px-1 py-0.5 rounded">DC</span>}
-                        </div>
-                       <div className="text-xs text-gray-600">
-                         Score: {player.totalScore}
-                       </div>
-                     </div>
-                   </div>
-                   <div className="text-right">
-                     {player.roundScore > 0 && (
-                       <div className="text-xs font-medium text-blue-600">
-                         R: {player.roundScore}
-                       </div>
-                     )}
-                   </div>
-                 </div>
-               ))}
-             </div>
-           </div>
+  
 
-           {/* Game Info */}
-           <div className="bg-white rounded-lg shadow-md p-3">
-             <h3 className="font-semibold mb-2 text-sm">Game Info</h3>
-             <div className="space-y-1 text-xs">
-               <div className="flex justify-between">
-                 <span>Phase:</span>
-                 <span className="font-medium">{gameState.gamePhase}</span>
-               </div>
-               <div className="flex justify-between">
-                 <span>Round:</span>
-                 <span className="font-medium">{gameState.roundNumber}</span>
-               </div>
-               <div className="flex justify-between">
-                 <span>Current:</span>
-                 <span className="font-medium">
-                   {gameState.players[gameState.currentPlayerIndex]?.name || 'None'}
-                 </span>
-               </div>
-               <div className="flex justify-between">
-                 <span>Stock:</span>
-                 <span className="font-medium">{gameState.stock.length}</span>
-               </div>
-               <div className="flex justify-between">
-                 <span>Discard:</span>
-                 <span className="font-medium">{gameState.discard.length}</span>
-               </div>
-             </div>
-           </div>
+
         </div>
       </div>
 
@@ -1532,10 +1408,7 @@ export function GamePage() {
                  <div className={`font-bold text-xl ${
                    activeTrick?.type === 'spy' ? 'text-blue-600' : 'text-red-600'
                  }`}>
-                   {incomingCard.rank} {incomingCard.suit === 'hearts' ? '♥' :
-                                        incomingCard.suit === 'diamonds' ? '♦' :
-                                        incomingCard.suit === 'clubs' ? '♣' :
-                                        incomingCard.suit === 'spades' ? '♠' : '?'}
+                   {formatCardDisplay(incomingCard)}
                  </div>
                </div>
              </div>
@@ -1546,8 +1419,9 @@ export function GamePage() {
              </p>
            </div>
          </div>
-       )}
-      
-    </div>
-  );
-}
+               )}
+       
+        
+      </div>
+    );
+  }

@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useGameStore } from '../stores/gameStore';
+import { MusicControl } from './MusicControl';
 
 interface LayoutProps {
   children: ReactNode;
@@ -64,12 +65,22 @@ export function Layout({ children }: LayoutProps) {
       {/* Footer */}
       <footer className="bg-white border-t border-gray-200 mt-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="text-center text-sm text-gray-600">
-            <p>Pablo Golf Game - A 4-card Golf variant</p>
-            <p className="mt-1">Built for local hosting and multiplayer fun</p>
+          <div className="text-center">
+            <div className="flex items-center justify-center space-x-2 mb-2">
+              <div className="w-6 h-6 bg-yellow-400 rounded-full flex items-center justify-center">
+                <span className="text-sm font-bold text-yellow-800">💡</span>
+              </div>
+              <span className="text-lg font-semibold text-gray-700">Play Pablo and have fun!</span>
+            </div>
+            <p className="text-sm text-gray-600">
+              for support contact: <a href="mailto:katiyarswapnil@gmail.com" className="text-blue-600 hover:text-blue-800 underline">katiyarswapnil@gmail.com</a>
+            </p>
           </div>
         </div>
       </footer>
+
+      {/* Music Control */}
+      <MusicControl />
     </div>
   );
 }

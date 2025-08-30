@@ -1,15 +1,14 @@
 import { Server, Socket } from 'socket.io';
 import { GameManager } from './gameManager';
-import { QAManager } from './qaManager';
+
 import { Player, GameAction, RoomSettings } from '@pablo/engine';
 
 interface SocketData {
   playerId?: string;
   roomId?: string;
-  isQA?: boolean;
 }
 
-export function setupSocketHandlers(io: Server, gameManager: GameManager, qaManager: QAManager): void {
+export function setupSocketHandlers(io: Server, gameManager: GameManager): void {
   // Helper function to send player-specific game states to all players in a room
   const broadcastGameStateToRoom = (roomId: string, excludePlayerId?: string) => {
     const room = gameManager.getRoom(roomId);
@@ -152,8 +151,9 @@ export function setupSocketHandlers(io: Server, gameManager: GameManager, qaMana
         const newState = gameManager.executeGameAction(roomId, action);
         console.log(`Server: Draw action result - lastAction:`, newState?.lastAction);
         if (newState) {
-          // Send turn result to the player who drew
-          socket.emit('turn:result', { action, state: newState });
+          // Send filtered turn result to the player who drew
+          const filteredState = gameManager.getGameState(roomId, playerId);
+          socket.emit('turn:result', { action, state: filteredState });
           
           // Broadcast state update to room
           broadcastGameStateToRoom(roomId);
@@ -178,8 +178,9 @@ export function setupSocketHandlers(io: Server, gameManager: GameManager, qaMana
 
         const newState = gameManager.executeGameAction(roomId, action);
         if (newState) {
-          // Send turn result to the player who replaced
-          socket.emit('turn:result', { action, state: newState });
+          // Send filtered turn result to the player who replaced
+          const filteredState = gameManager.getGameState(roomId, playerId);
+          socket.emit('turn:result', { action, state: filteredState });
           
           // Broadcast state update to room
           broadcastGameStateToRoom(roomId);
@@ -214,8 +215,9 @@ export function setupSocketHandlers(io: Server, gameManager: GameManager, qaMana
             lastAction: newState.lastAction,
             gamePhase: newState.gamePhase
           });
-          // Send turn result to the player who discarded
-          socket.emit('turn:result', { action, state: newState });
+          // Send filtered turn result to the player who discarded
+          const filteredState = gameManager.getGameState(roomId, playerId);
+          socket.emit('turn:result', { action, state: filteredState });
           
           // Broadcast state update to room
           broadcastGameStateToRoom(roomId);
@@ -240,7 +242,8 @@ export function setupSocketHandlers(io: Server, gameManager: GameManager, qaMana
 
         const newState = gameManager.executeGameAction(roomId, action);
         if (newState) {
-          socket.emit('turn:result', { action, state: newState });
+          const filteredState = gameManager.getGameState(roomId, playerId);
+          socket.emit('turn:result', { action, state: filteredState });
           broadcastGameStateToRoom(roomId);
           io.to(roomId).emit('pablo:called', { callerId: playerId });
         }
@@ -268,7 +271,8 @@ export function setupSocketHandlers(io: Server, gameManager: GameManager, qaMana
             lastAction: newState.lastAction,
             gamePhase: newState.gamePhase
           });
-          socket.emit('turn:result', { action, state: newState });
+          const filteredState = gameManager.getGameState(roomId, playerId);
+          socket.emit('turn:result', { action, state: filteredState });
           broadcastGameStateToRoom(roomId);
         }
       } catch (error) {
@@ -371,7 +375,8 @@ export function setupSocketHandlers(io: Server, gameManager: GameManager, qaMana
             gamePhase: newState.gamePhase,
             activeTrick: newState.activeTrick
           });
-          socket.emit('turn:result', { action, state: newState });
+          const filteredState = gameManager.getGameState(roomId, playerId);
+          socket.emit('turn:result', { action, state: filteredState });
           broadcastGameStateToRoom(roomId);
         }
       } catch (error) {
@@ -398,7 +403,8 @@ export function setupSocketHandlers(io: Server, gameManager: GameManager, qaMana
             gamePhase: newState.gamePhase,
             activeTrick: newState.activeTrick
           });
-          socket.emit('turn:result', { action, state: newState });
+          const filteredState = gameManager.getGameState(roomId, playerId);
+          socket.emit('turn:result', { action, state: filteredState });
           broadcastGameStateToRoom(roomId);
         }
       } catch (error) {
@@ -425,7 +431,8 @@ export function setupSocketHandlers(io: Server, gameManager: GameManager, qaMana
             gamePhase: newState.gamePhase,
             activeTrick: newState.activeTrick
           });
-          socket.emit('turn:result', { action, state: newState });
+          const filteredState = gameManager.getGameState(roomId, playerId);
+          socket.emit('turn:result', { action, state: filteredState });
           broadcastGameStateToRoom(roomId);
         }
       } catch (error) {
@@ -433,6 +440,8 @@ export function setupSocketHandlers(io: Server, gameManager: GameManager, qaMana
         socket.emit('error', { message: error instanceof Error ? error.message : 'Failed to execute spy' });
       }
     });
+
+
 
     socket.on('turn:skipTrick', () => {
       const { playerId, roomId } = socket.data as SocketData;
@@ -451,7 +460,8 @@ export function setupSocketHandlers(io: Server, gameManager: GameManager, qaMana
             gamePhase: newState.gamePhase,
             activeTrick: newState.activeTrick
           });
-          socket.emit('turn:result', { action, state: newState });
+          const filteredState = gameManager.getGameState(roomId, playerId);
+          socket.emit('turn:result', { action, state: filteredState });
           broadcastGameStateToRoom(roomId);
         }
       } catch (error) {
@@ -514,82 +524,7 @@ export function setupSocketHandlers(io: Server, gameManager: GameManager, qaMana
       io.to(roomId).emit('chat:message', message);
     });
 
-    // QA Actions (only for authenticated QA sessions)
-    socket.on('qa:reveal', (data: { playerId: string }) => {
-      const { isQA, roomId } = socket.data as SocketData;
-      if (!isQA || !roomId) {
-        socket.emit('error', { message: 'QA access required' });
-        return;
-      }
 
-      try {
-        const room = gameManager.getRoom(roomId);
-        if (!room) return;
-
-        const result = qaManager.revealPlayerCards(room.engine, data.playerId);
-        socket.emit('qa:revealResult', result);
-      } catch (error) {
-        socket.emit('error', { message: error instanceof Error ? error.message : 'QA reveal failed' });
-      }
-    });
-
-    socket.on('qa:injectCard', (data: { where: 'stock' | 'discard'; card: any }) => {
-      const { isQA, roomId } = socket.data as SocketData;
-      if (!isQA || !roomId) {
-        socket.emit('error', { message: 'QA access required' });
-        return;
-      }
-
-      try {
-        const room = gameManager.getRoom(roomId);
-        if (!room) return;
-
-        const newState = qaManager.injectCard(room.engine, data.where, data.card);
-        io.to(roomId).emit('state:patch', newState);
-        socket.emit('qa:injectResult', { success: true });
-      } catch (error) {
-        socket.emit('error', { message: error instanceof Error ? error.message : 'QA inject failed' });
-      }
-    });
-
-    socket.on('qa:setSeed', (data: { seed: number }) => {
-      const { isQA, roomId } = socket.data as SocketData;
-      if (!isQA || !roomId) {
-        socket.emit('error', { message: 'QA access required' });
-        return;
-      }
-
-      try {
-        const room = gameManager.getRoom(roomId);
-        if (!room) return;
-
-        const newState = qaManager.setSeed(room.engine, data.seed);
-        io.to(roomId).emit('state:patch', newState);
-        socket.emit('qa:setSeedResult', { success: true });
-      } catch (error) {
-        socket.emit('error', { message: error instanceof Error ? error.message : 'QA set seed failed' });
-      }
-    });
-
-    socket.on('qa:forceTurn', (data: { playerId: string }) => {
-      const { isQA, roomId } = socket.data as SocketData;
-      if (!isQA || !roomId) {
-        socket.emit('error', { message: 'QA access required' });
-        return;
-      }
-
-      try {
-        const room = gameManager.getRoom(roomId);
-        if (!room) return;
-
-        const newState = qaManager.forceTurn(room.engine, data.playerId);
-        io.to(roomId).emit('state:patch', newState);
-        io.to(roomId).emit('turn:you', { playerId: data.playerId });
-        socket.emit('qa:forceTurnResult', { success: true });
-      } catch (error) {
-        socket.emit('error', { message: error instanceof Error ? error.message : 'QA force turn failed' });
-      }
-    });
 
     // Disconnect handling
     socket.on('disconnect', () => {

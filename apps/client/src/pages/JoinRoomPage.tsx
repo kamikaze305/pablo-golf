@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useGameStore } from '../stores/gameStore';
 import { Player } from '@pablo/engine';
@@ -9,7 +9,16 @@ export function JoinRoomPage() {
   const { joinRoom, isLoading, error, setError, isConnected, connect } = useGameStore();
   
   const [playerName, setPlayerName] = useState('');
-  const [password, setPassword] = useState('');
+  
+  // Add ref for auto-focus
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
+  // Auto-focus on name input when page loads
+  useEffect(() => {
+    if (nameInputRef.current) {
+      nameInputRef.current.focus();
+    }
+  }, []);
 
   // Auto-connect when component mounts
   useEffect(() => {
@@ -42,7 +51,7 @@ export function JoinRoomPage() {
         isHost: false
       };
 
-      await joinRoom(roomKey.toUpperCase(), player, password || undefined);
+      await joinRoom(roomKey.toUpperCase(), player);
       
       // Navigate to the game page after successful join
       // The roomId will be available in the store after successful join
@@ -89,6 +98,7 @@ export function JoinRoomPage() {
               Your Name
             </label>
             <input
+              ref={nameInputRef}
               type="text"
               value={playerName}
               onChange={(e) => setPlayerName(e.target.value)}
@@ -99,19 +109,7 @@ export function JoinRoomPage() {
             />
           </div>
 
-          {/* Password */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Password (if required)
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Enter room password"
-            />
-          </div>
+
 
           {/* Submit Button */}
           <button

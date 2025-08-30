@@ -8,7 +8,6 @@ export function JoinRoomModal() {
   
   const [playerName, setPlayerName] = useState('');
   const [roomKey, setRoomKey] = useState('');
-  const [password, setPassword] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,7 +33,7 @@ export function JoinRoomModal() {
         isHost: false
       };
 
-      await joinRoom(roomKey.trim().toUpperCase(), player, password || undefined);
+      await joinRoom(roomKey.trim().toUpperCase(), player);
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Failed to join room');
     }
@@ -88,20 +87,7 @@ export function JoinRoomModal() {
               </p>
             </div>
 
-            {/* Password */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Password (if required)
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="input-field"
-                placeholder="Enter password if required"
-                maxLength={20}
-              />
-            </div>
+
 
             {/* Actions */}
             <div className="flex justify-end space-x-4 pt-6">
