@@ -176,19 +176,13 @@ export function GameEndDisplay({
         </div>
 
         {/* Pablo Caller Info */}
-        {pabloCalled && pabloCallerId && (() => {
-          const pabloCaller = players.find(p => p.id === pabloCallerId);
-          const callerScore = pabloCaller?.totalScore || 0;
-          const isWinner = pabloCaller?.id === winner.id;
-          
-          return (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
-              <h3 className="font-semibold text-yellow-800 mb-2">
-                Game Over for all other players. <span className="font-bold">{winner.name}</span> won with {winner.totalScore} points.
-              </h3>
-            </div>
-          );
-        })()}
+        {pabloCalled && pabloCallerId && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+            <h3 className="font-semibold text-yellow-800 mb-2">
+              Game Over for all other players. <span className="font-bold">{winner.name}</span> won with {winner.totalScore} points.
+            </h3>
+          </div>
+        )}
 
         {/* Play Again Button - Only for Host */}
         {isHost && (
