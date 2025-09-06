@@ -79,7 +79,8 @@ jspm_packages/
 
 # Gatsby files
 .cache/
-public
+# Only ignore public directories that are build outputs, not source assets
+# apps/client/public/ is needed for Vite static assets
 
 # Storybook build outputs
 .out
