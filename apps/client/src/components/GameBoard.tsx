@@ -34,7 +34,6 @@ interface GameBoardProps {
   isHost?: boolean;
   onCardClick: (playerId: string, cardIndex: number) => void;
   onPeekCard: (cardIndex: number) => void;
-  onStartRound?: () => void;
 }
 
 export function GameBoard({
@@ -63,8 +62,7 @@ export function GameBoard({
   pabloCallerId,
   isHost,
   onCardClick,
-  onPeekCard,
-  onStartRound
+  onPeekCard
 }: GameBoardProps) {
   // If in peeking phase, show integrated game board with peeking functionality
   if (gamePhase === 'peeking') {
@@ -76,21 +74,38 @@ export function GameBoard({
           {/* Stock and Discard - Compact */}
           <div className="flex justify-center space-x-6 mb-4">
             <div className="text-center">
-              <div className="w-12 h-16 bg-blue-100 border-2 border-blue-300 rounded-lg flex items-center justify-center mb-1">
-                <span className="text-blue-600 font-bold text-sm">{stock.length}</span>
+              <div className="flex justify-center mb-1">
+                {stock.length > 0 ? (
+                  <div className="bg-blue-100 border-2 border-blue-300 rounded-lg p-1">
+                    <PlayingCard 
+                      card={{suit: 'hidden', rank: 'hidden', value: 0, isJoker: false}}
+                      isHidden={true}
+                      className="w-10 h-14"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-12 h-16 bg-blue-100 border-2 border-blue-300 rounded-lg flex items-center justify-center">
+                    <span className="text-blue-600 font-bold text-xs">Empty</span>
+                  </div>
+                )}
               </div>
-              <p className="text-xs text-gray-600">Stock</p>
+              <p className="text-xs text-gray-600">Stock ({stock.length})</p>
             </div>
             
             <div className="text-center">
-              <div className="w-12 h-16 bg-green-100 border-2 border-green-300 rounded-lg flex items-center justify-center mb-1">
+              <div className="flex justify-center mb-1">
                 {discard.length > 0 ? (
-                  <div className="text-center">
-                    <div className="text-sm font-bold text-green-800">{discard[discard.length - 1].rank}</div>
-                    <div className="text-xs text-green-600">{discard[discard.length - 1].suit}</div>
+                  <div className="bg-green-100 border-2 border-green-300 rounded-lg p-1">
+                    <PlayingCard 
+                      card={discard[discard.length - 1]}
+                      isHidden={false}
+                      className="w-10 h-14"
+                    />
                   </div>
                 ) : (
-                  <span className="text-green-600 font-bold text-xs">Empty</span>
+                  <div className="w-12 h-16 bg-green-100 border-2 border-green-300 rounded-lg flex items-center justify-center">
+                    <span className="text-green-600 font-bold text-xs">Empty</span>
+                  </div>
                 )}
               </div>
               <p className="text-xs text-gray-600">Discard ({discard.length})</p>
@@ -107,11 +122,11 @@ export function GameBoard({
               const canPeekMore = isCurrentPlayer && playerPeekedCards.length < (gameSettings?.cardsPerPlayer || 4) / 2;
               
               return (
-                <div key={player.id} className={`border rounded-lg p-3 ${isCurrentTurn ? 'border-yellow-400 bg-yellow-50 shadow-lg' : ''} ${isCurrentPlayer ? 'border-blue-400 bg-blue-50' : ''}`}>
+                <div key={player.id} className={`border rounded-lg p-3 ${isCurrentTurn ? 'border-yellow-400 bg-yellow-50 shadow-lg' : 'bg-blue-50 border-blue-200'} ${isCurrentPlayer ? 'border-blue-400 bg-blue-100 shadow-lg' : ''}`}>
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center space-x-2">
                       {player.isHost && <HostIcon />}
-                      <h3 className={`font-semibold text-sm ${isCurrentTurn ? 'text-yellow-800' : ''} ${isCurrentPlayer ? 'text-blue-800' : ''} ${!player.isConnected ? 'text-gray-500' : ''}`}>
+                      <h3 className={`font-semibold text-sm ${isCurrentTurn ? 'text-yellow-800' : 'text-blue-800'} ${isCurrentPlayer ? 'text-blue-900' : ''} ${!player.isConnected ? 'text-gray-500' : ''}`}>
                         {player.name}
                         {isReady && (
                           <span 
@@ -198,7 +213,6 @@ export function GameBoard({
             pabloCalled={pabloCalled || false}
             pabloCallerId={pabloCallerId}
             isHost={isHost || false}
-            onStartRound={onStartRound || (() => {})}
           />
         </div>
       </div>
@@ -214,21 +228,38 @@ export function GameBoard({
         {/* Stock and Discard - Compact */}
         <div className="flex justify-center space-x-6 mb-4">
           <div className="text-center">
-            <div className="w-12 h-16 bg-blue-100 border-2 border-blue-300 rounded-lg flex items-center justify-center mb-1">
-              <span className="text-blue-600 font-bold text-sm">{stock.length}</span>
+            <div className="flex justify-center mb-1">
+              {stock.length > 0 ? (
+                <div className="bg-blue-100 border-2 border-blue-300 rounded-lg p-1">
+                  <PlayingCard 
+                    card={{suit: 'hidden', rank: 'hidden', value: 0, isJoker: false}}
+                    isHidden={true}
+                    className="w-10 h-14"
+                  />
+                </div>
+              ) : (
+                <div className="w-12 h-16 bg-blue-100 border-2 border-blue-300 rounded-lg flex items-center justify-center">
+                  <span className="text-blue-600 font-bold text-xs">Empty</span>
+                </div>
+              )}
             </div>
-            <p className="text-xs text-gray-600">Stock</p>
+            <p className="text-xs text-gray-600">Stock ({stock.length})</p>
           </div>
           
           <div className="text-center">
-            <div className="w-12 h-16 bg-green-100 border-2 border-green-300 rounded-lg flex items-center justify-center mb-1">
+            <div className="flex justify-center mb-1">
               {discard.length > 0 ? (
-                <div className="text-center">
-                  <div className="text-sm font-bold text-green-800">{discard[discard.length - 1].rank}</div>
-                  <div className="text-xs text-green-600">{discard[discard.length - 1].suit}</div>
+                <div className="bg-green-100 border-2 border-green-300 rounded-lg p-1">
+                  <PlayingCard 
+                    card={discard[discard.length - 1]}
+                    isHidden={false}
+                    className="w-10 h-14"
+                  />
                 </div>
               ) : (
-                <span className="text-green-600 font-bold text-xs">Empty</span>
+                <div className="w-12 h-16 bg-green-100 border-2 border-green-300 rounded-lg flex items-center justify-center">
+                  <span className="text-green-600 font-bold text-xs">Empty</span>
+                </div>
               )}
             </div>
             <p className="text-xs text-gray-600">Discard ({discard.length})</p>
@@ -265,7 +296,24 @@ export function GameBoard({
                 >
                   {player.cards.map((card: any, cardIndex: number) => {
                     const isMyCard = currentPlayerId === player.id;
-                    const isHidden = card && card.suit === 'hidden';
+                    
+                    // Determine if card should be hidden
+                    let isHidden = false;
+                    
+                    if (isMyCard) {
+                      // For current player's cards, they should be hidden during gameplay
+                      // unless they're specifically revealed for replacement selection
+                      isHidden = true;
+                      
+                      // Only show cards that are explicitly marked as visible by the engine
+                      // or cards that are selected for replacement
+                      if (card && !(card.suit === 'hidden' || card.rank === 'hidden')) {
+                        isHidden = false;
+                      }
+                    } else {
+                      // For other players, always hide cards
+                      isHidden = true;
+                    }
                     
                     // Check if this card is selected for replacement - only show for current player
                     const isSelectedForReplacement = selectedCardIndex === cardIndex && canReplace && isMyCard;

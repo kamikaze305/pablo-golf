@@ -4,6 +4,7 @@ import { useGameStore } from '../stores/gameStore';
 import { CreateRoomModal } from '../components/CreateRoomModal';
 import { JoinRoomModal } from '../components/JoinRoomModal';
 import { ErrorMessage } from '../components/ErrorMessage';
+import { GameInstructions } from '../components/GameInstructions';
 
 
 export function HomePage() {
@@ -137,7 +138,13 @@ export function HomePage() {
         </div>
       </div>
 
-
+      {/* How to Play Instructions */}
+      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">
+          How to Play Pablo
+        </h2>
+        <GameInstructions />
+      </div>
 
              {/* Modals */}
        {showCreateRoomModal && <CreateRoomModal />}

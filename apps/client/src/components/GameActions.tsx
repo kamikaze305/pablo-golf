@@ -93,20 +93,6 @@ export function GameActions({
   const [showSpyHelp, setShowSpyHelp] = useState(false);
   const [showPeekingHelp, setShowPeekingHelp] = useState(false);
 
-  // Auto-mark ready when 2 cards are peeked
-  useEffect(() => {
-    if (gamePhase === 'peeking' && currentPlayerId && !readyPlayers.includes(currentPlayerId)) {
-      const currentPlayerPeekedCards = peekedCards[currentPlayerId] || [];
-      if (currentPlayerPeekedCards.length >= 2) {
-        // Small delay to allow the UI to update first
-        const timer = setTimeout(() => {
-          onPlayerReady();
-        }, 100);
-        return () => clearTimeout(timer);
-      }
-    }
-  }, [gamePhase, currentPlayerId, peekedCards, readyPlayers, onPlayerReady]);
-
   // Function to get current status message
   const getStatusMessage = () => {
     if (gamePhase === 'waiting') {
@@ -308,8 +294,8 @@ export function GameActions({
           </div>
         )}
         
-        {/* Drawn Card Display */}
-        {lastAction?.type === 'draw' && (
+        {/* Drawn Card Display - Only show to the player who drew the card */}
+        {lastAction?.type === 'draw' && lastAction.playerId === currentPlayerId && (
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-3">
             <div className="flex items-center justify-between mb-2">
               <h4 className="font-semibold text-yellow-800 text-sm">🎯 Drawn Card - Select Replacement</h4>

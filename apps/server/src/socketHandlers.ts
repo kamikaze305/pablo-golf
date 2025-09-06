@@ -40,12 +40,16 @@ export function setupSocketHandlers(io: Server, gameManager: GameManager): void 
         
         console.log('Server: Room created with ID:', roomId);
         
+        // Generate session token for the player
+        const sessionToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+        const sessionExpiry = Date.now() + (60 * 60 * 1000); // 1 hour
+        
         socket.data = { playerId: player.id, roomId };
         socket.join(roomId);
         gameManager.addSocketToRoom(roomId, player.id, socket);
 
         // Send room created confirmation via callback
-        const response = { roomId, roomKey: settings.roomKey };
+        const response = { roomId, roomKey: settings.roomKey, sessionToken, sessionExpiry };
         console.log('Server: Sending callback response:', response);
         callback(response);
 
@@ -68,12 +72,16 @@ export function setupSocketHandlers(io: Server, gameManager: GameManager): void 
         const { roomKey, player, password } = data;
         const roomId = gameManager.joinRoom(roomKey, player, password);
         
+        // Generate session token for the player
+        const sessionToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+        const sessionExpiry = Date.now() + (60 * 60 * 1000); // 1 hour
+        
         socket.data = { playerId: player.id, roomId };
         socket.join(roomId);
         gameManager.addSocketToRoom(roomId, player.id, socket);
 
         // Send join confirmation via callback
-        callback({ roomId });
+        callback({ roomId, sessionToken, sessionExpiry });
 
         // Send player-specific game state to the joining player
         const playerGameState = gameManager.getGameState(roomId, player.id);

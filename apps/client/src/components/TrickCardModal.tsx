@@ -1,24 +1,10 @@
+import { PlayingCard } from './PlayingCard';
+
 interface TrickCardModalProps {
   show: boolean;
   incomingCard: any;
   trickType?: 'swap' | 'spy';
 }
-
-// Helper function to format card display names with proper suit symbols
-const formatCardDisplay = (card: any): string => {
-  if (!card) return 'Empty';
-  if (card.isJoker) return `JOKER (${card.value})`;
-  
-  const suitSymbols = {
-    hearts: '♥',
-    diamonds: '♦',
-    clubs: '♣',
-    spades: '♠'
-  };
-  
-  const suitSymbol = suitSymbols[card.suit as keyof typeof suitSymbols] || card.suit;
-  return `${card.rank} ${suitSymbol} (${card.value})`;
-};
 
 export function TrickCardModal({ show, incomingCard, trickType }: TrickCardModalProps) {
   if (!show || !incomingCard) return null;
@@ -30,15 +16,17 @@ export function TrickCardModal({ show, incomingCard, trickType }: TrickCardModal
           {trickType === 'spy' ? 'Spied Card' : 'Incoming Card'}
         </h3>
         <div className="text-center mb-4">
-          <div className={`inline-block rounded-lg p-4 ${
-            trickType === 'spy' 
-              ? 'bg-blue-100 border-2 border-blue-500' 
-              : 'bg-red-100 border-2 border-red-500'
-          }`}>
-            <div className={`font-bold text-xl ${
-              trickType === 'spy' ? 'text-blue-600' : 'text-red-600'
+          <div className="flex justify-center">
+            <div className={`p-2 rounded-lg ${
+              trickType === 'spy' 
+                ? 'bg-blue-100 border-2 border-blue-500' 
+                : 'bg-red-100 border-2 border-red-500'
             }`}>
-              {formatCardDisplay(incomingCard)}
+              <PlayingCard 
+                card={incomingCard}
+                isHidden={false}
+                className="w-16 h-24"
+              />
             </div>
           </div>
         </div>

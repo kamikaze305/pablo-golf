@@ -20,41 +20,19 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
       try {
         setMusicStatus('loading');
         
-        // Try multiple paths to find the music file
-        const musicPaths = [
-          '/music/bg_music.mp3',
-          '/resources/music/bg_music.mp3',
-          './music/bg_music.mp3',
-          '../music/bg_music.mp3'
-        ];
+        // Load music from the main path
+        const musicPath = '/music/bg_music.mp3';
         
-        console.log('Attempting to fetch music from paths:', musicPaths);
+        console.log('Attempting to fetch music from:', musicPath);
         
-        let audioBlob: Blob | null = null;
-        let successfulPath = '';
+        const response = await fetch(musicPath);
         
-        // Try each path until one works
-        for (const path of musicPaths) {
-          try {
-            console.log('Trying to fetch from:', path);
-            const response = await fetch(path);
-            
-            if (response.ok) {
-              audioBlob = await response.blob();
-              successfulPath = path;
-              console.log('Successfully fetched music from:', path);
-              break;
-            } else {
-              console.warn('Failed to fetch from:', path, 'Status:', response.status);
-            }
-          } catch (error) {
-            console.warn('Error fetching from:', path, error);
-          }
+        if (!response.ok) {
+          throw new Error(`Failed to fetch music from ${musicPath}: ${response.status}`);
         }
         
-        if (!audioBlob) {
-          throw new Error('Failed to fetch music from all paths');
-        }
+        const audioBlob = await response.blob();
+        console.log('Successfully fetched music from:', musicPath);
         
         // Create audio element from the blob
         const audioUrl = URL.createObjectURL(audioBlob);
@@ -66,7 +44,7 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
         // Wait for audio to be loaded before allowing playback
         audioRef.current.addEventListener('canplaythrough', async () => {
           setMusicStatus('ready');
-          console.log('Audio loaded successfully from:', successfulPath);
+          console.log('Audio loaded successfully from:', musicPath);
           
           // Don't auto-play music - start in muted state
           setMusicStatus('paused');

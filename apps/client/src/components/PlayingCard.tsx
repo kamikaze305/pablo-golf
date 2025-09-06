@@ -48,7 +48,7 @@ export function PlayingCard({
     ${className}
   `;
 
-  if (isHidden === true || (card && (card.suit === 'hidden' || card.rank === 'hidden'))) {
+  if (isHidden === true || (card && card.suit === 'hidden' && card.rank === 'hidden')) {
     return (
       <div className={cardClasses} onClick={onClick}>
         {/* Card Back Design - CSS only */}

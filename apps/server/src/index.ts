@@ -57,6 +57,17 @@ const gameManager = new GameManager();
 // Setup Socket.IO handlers
 setupSocketHandlers(io, gameManager);
 
+// Simple session cleanup - check every 5 minutes for expired sessions
+setInterval(() => {
+  const now = Date.now();
+  const cutoff = now - (60 * 60 * 1000); // 1 hour ago
+  
+  // Clean up any rooms that have been inactive for more than 1 hour
+  gameManager.cleanupInactiveRooms(1);
+  
+  console.log(`Session cleanup completed at ${new Date().toISOString()}`);
+}, 5 * 60 * 1000); // Check every 5 minutes
+
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error('Server error:', err);

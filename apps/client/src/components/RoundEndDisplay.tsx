@@ -1,4 +1,4 @@
-import { Play, Megaphone } from 'lucide-react';
+import { Megaphone } from 'lucide-react';
 import { PlayingCard } from './PlayingCard';
 import { HostIcon } from './icons_master';
 
@@ -8,7 +8,6 @@ interface RoundEndDisplayProps {
   pabloCalled: boolean;
   pabloCallerId?: string;
   isHost: boolean;
-  onStartRound: () => void;
 }
 
 export function RoundEndDisplay({
@@ -16,8 +15,7 @@ export function RoundEndDisplay({
   players,
   pabloCalled,
   pabloCallerId,
-  isHost,
-  onStartRound
+  isHost
 }: RoundEndDisplayProps) {
   return (
     <div className="w-full">
@@ -26,16 +24,7 @@ export function RoundEndDisplay({
         <h3 className="text-xl font-bold text-gray-900 mb-2">Round {roundNumber} Complete!</h3>
         <div className="text-sm text-gray-600 mb-3">
           {isHost ? (
-            <div className="space-y-2">
-              <p>Ready to start the next round?</p>
-              <button
-                onClick={onStartRound}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold text-sm"
-              >
-                <Play size={14} className="inline mr-2" />
-                Start Next Round
-              </button>
-            </div>
+            <p>Use the Host Actions above to start the next round</p>
           ) : (
             <p>Waiting for host to start next round...</p>
           )}

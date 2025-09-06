@@ -47,15 +47,23 @@ const SESSION_KEYS = {
   ROOM_ID: 'pablo_room_id',
   PLAYER_ID: 'pablo_player_id',
   PLAYER_NAME: 'pablo_player_name',
-  ROOM_KEY: 'pablo_room_key'
+  ROOM_KEY: 'pablo_room_key',
+  SESSION_TOKEN: 'pablo_session_token',
+  SESSION_EXPIRY: 'pablo_session_expiry'
 };
 
+// Session timeout constants
+const SESSION_TIMEOUT_MS = 60 * 60 * 1000; // 1 hour
+const HEARTBEAT_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+
 // Helper functions for session persistence
-const saveSession = (roomId: string, playerId: string, playerName: string, roomKey: string) => {
+const saveSession = (roomId: string, playerId: string, playerName: string, roomKey: string, sessionToken: string, sessionExpiry: number) => {
   localStorage.setItem(SESSION_KEYS.ROOM_ID, roomId);
   localStorage.setItem(SESSION_KEYS.PLAYER_ID, playerId);
   localStorage.setItem(SESSION_KEYS.PLAYER_NAME, playerName);
   localStorage.setItem(SESSION_KEYS.ROOM_KEY, roomKey);
+  localStorage.setItem(SESSION_KEYS.SESSION_TOKEN, sessionToken);
+  localStorage.setItem(SESSION_KEYS.SESSION_EXPIRY, sessionExpiry.toString());
 };
 
 const loadSession = () => {
@@ -63,9 +71,15 @@ const loadSession = () => {
   const playerId = localStorage.getItem(SESSION_KEYS.PLAYER_ID);
   const playerName = localStorage.getItem(SESSION_KEYS.PLAYER_NAME);
   const roomKey = localStorage.getItem(SESSION_KEYS.ROOM_KEY);
+  const sessionToken = localStorage.getItem(SESSION_KEYS.SESSION_TOKEN);
+  const sessionExpiry = localStorage.getItem(SESSION_KEYS.SESSION_EXPIRY);
   
-  if (roomId && playerId && playerName && roomKey) {
-    return { roomId, playerId, playerName, roomKey };
+  if (roomId && playerId && playerName && roomKey && sessionToken && sessionExpiry) {
+    const expiry = parseInt(sessionExpiry);
+    // Check if session is still valid
+    if (Date.now() < expiry) {
+      return { roomId, playerId, playerName, roomKey, sessionToken, sessionExpiry: expiry };
+    }
   }
   return null;
 };
@@ -75,6 +89,8 @@ const clearSession = () => {
   localStorage.removeItem(SESSION_KEYS.PLAYER_ID);
   localStorage.removeItem(SESSION_KEYS.PLAYER_NAME);
   localStorage.removeItem(SESSION_KEYS.ROOM_KEY);
+  localStorage.removeItem(SESSION_KEYS.SESSION_TOKEN);
+  localStorage.removeItem(SESSION_KEYS.SESSION_EXPIRY);
 };
 
 export const useGameStore = create<GameStore>()(
@@ -275,7 +291,7 @@ export const useGameStore = create<GameStore>()(
           } else {
             console.log('GameStore: Room created successfully, setting playerId to:', player.id);
             // Save session data
-            saveSession(response.roomId, player.id, player.name, response.roomKey);
+            saveSession(response.roomId, player.id, player.name, response.roomKey, response.sessionToken, response.sessionExpiry);
             set({ 
               roomId: response.roomId, 
               playerId: player.id,
@@ -303,7 +319,7 @@ export const useGameStore = create<GameStore>()(
           } else {
             console.log('GameStore: Room joined successfully, setting playerId to:', player.id);
             // Save session data
-            saveSession(response.roomId, player.id, player.name, roomKey);
+            saveSession(response.roomId, player.id, player.name, roomKey, response.sessionToken, response.sessionExpiry);
             set({ 
               roomId: response.roomId, 
               playerId: player.id,

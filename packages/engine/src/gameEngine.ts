@@ -133,6 +133,8 @@ export class PabloGameEngine {
       return state;
     }
 
+
+
     // After peeking phase ends (when all players are ready), hide ALL cards for ALL players
     // until the game actually starts with the first player's turn
     if (state.gamePhase === 'playing' && state.lastAction === undefined) {
@@ -150,13 +152,26 @@ export class PabloGameEngine {
       return state;
     }
 
-    // During normal gameplay: show current player's cards, hide other players' cards
+    // During normal gameplay: hide ALL cards for ALL players
+    // Players can only see cards when they're in the discard pile
+    // EXCEPT: show ONLY the drawn card to the current player if they just drew one
     state.players = state.players.map(p => {
-      if (p.id === playerId) {
-        // For current player, show their own cards (so they can see what they have)
-        return p;
+      if (p.id === playerId && state.lastAction?.type === 'draw' && state.lastAction.playerId === playerId) {
+        // For current player who just drew, show ONLY the drawn card, hide all others
+        // The drawn card is stored in lastAction.card but not yet added to the player's hand
+        // So we need to show the drawn card separately and hide all cards in the hand
+        return {
+          ...p,
+          cards: p.cards.map(card => card ? { 
+            ...card, 
+            originalSuit: card.suit,
+            originalRank: card.rank,
+            suit: 'hidden', 
+            rank: 'hidden' as any 
+          } : null)
+        };
       } else {
-        // For other players, hide their cards (so current player can't see what others have)
+        // For all other players and situations, hide all cards
         return {
           ...p,
           cards: p.cards.map(card => card ? { 
@@ -242,6 +257,8 @@ export class PabloGameEngine {
     return this.getState();
   }
 
+
+
   executeAction(action: GameAction): GameState {
     switch (action.type) {
       case 'draw':
@@ -260,6 +277,7 @@ export class PabloGameEngine {
         return this.handlePlayerReady(action);
       case 'startRound':
         return this.startRound();
+
       case 'endRound':
         return this.endRound();
       case 'endGame':
@@ -389,7 +407,7 @@ export class PabloGameEngine {
         stock: newStock,
         discard: newDiscard,
         currentPlayerIndex: nextPlayerIndex,
-        lastAction: newLastAction,
+        lastAction: undefined, // Clear lastAction so next player can draw
         activeTrick: newActiveTrick,
         gamePhase: newGamePhase,
         playersWhoHadFinalTurn: updatedFinalTurnPlayers
@@ -407,7 +425,7 @@ export class PabloGameEngine {
         players: newPlayers,
         stock: newStock,
         discard: newDiscard,
-        lastAction: newLastAction,
+        lastAction: newLastAction, // Set lastAction to trigger Pablo window or trick activation
         activeTrick: newActiveTrick,
         gamePhase: newGamePhase
       };
@@ -476,7 +494,7 @@ export class PabloGameEngine {
         discard: newDiscard,
         currentPlayerIndex: nextPlayerIndex,
         gamePhase: newGamePhase,
-        lastAction: newLastAction,
+        lastAction: undefined, // Clear lastAction so next player can draw
         activeTrick: newActiveTrick,
         playersWhoHadFinalTurn: updatedFinalTurnPlayers
       };
@@ -493,7 +511,7 @@ export class PabloGameEngine {
         stock: newStock,
         discard: newDiscard,
         gamePhase: newGamePhase,
-        lastAction: newLastAction,
+        lastAction: newLastAction, // Set lastAction to trigger Pablo window or trick activation
         activeTrick: newActiveTrick
       };
     }
@@ -755,7 +773,7 @@ export class PabloGameEngine {
     // Check if all players are ready
     const allPlayersReady = readyPlayers.length >= this.state.players.length;
     if (allPlayersReady) {
-      // Transition to playing phase
+      // Transition to playing phase immediately
       this.state = {
         ...this.state,
         gamePhase: 'playing',
