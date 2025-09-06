@@ -329,6 +329,8 @@ export function GamePage() {
           executeAction({ type: 'resetGame' });
         }}
         isHost={currentPlayer?.isHost || false}
+        roundNumber={gameState.roundNumber}
+        cutoffScore={gameState.settings.targetScore}
       />
     );
   }
@@ -567,6 +569,7 @@ export function GamePage() {
         roomId={roomId || ''}
         roomKey={gameState?.settings?.roomKey}
         currentPlayerName={currentPlayer?.name}
+        targetScore={gameState?.settings?.targetScore}
         onCopyRoomCode={handleCopyRoomCode}
         onLeaveRoom={handleLeaveRoom}
         linkCopied={linkCopied}
@@ -651,6 +654,7 @@ export function GamePage() {
         pabloCalled={gameState.pabloCalled}
         pabloCallerId={gameState.pabloCallerId}
         isHost={currentPlayer?.isHost || false}
+        targetScore={gameState.settings.targetScore}
         onCardClick={(playerId, cardIndex) => {
           if (currentPlayer?.id === playerId && canReplace) {
             setSelectedCardIndex(cardIndex);

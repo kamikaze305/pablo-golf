@@ -38,7 +38,7 @@ export function PlayingCard({
   onClick,
   className = ''
 }: CardProps) {
-  const baseClasses = "w-12 h-16 border rounded flex flex-col justify-between relative cursor-pointer transition-all text-xs";
+  const baseClasses = "w-12 h-16 border rounded flex flex-col justify-between relative cursor-pointer transition-all text-xs min-w-[3rem] min-h-[4rem]";
   
   const cardClasses = `
     ${baseClasses}
@@ -56,8 +56,8 @@ export function PlayingCard({
           <div className="absolute inset-0 opacity-20">
             <div className="w-full h-full" style={{backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(255,255,255,0.1) 2px, rgba(255,255,255,0.1) 4px)'}}></div>
           </div>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="text-white text-2xl font-bold opacity-80">♠</div>
+          <div className="absolute inset-0 flex items-center justify-center min-h-[2rem]">
+            <div className="text-white text-2xl font-bold opacity-80 leading-none">♠</div>
           </div>
           <div className="absolute top-1 left-1 w-3 h-3 border-l-2 border-t-2 border-white opacity-60"></div>
           <div className="absolute top-1 right-1 w-3 h-3 border-r-2 border-t-2 border-white opacity-60"></div>
@@ -93,10 +93,10 @@ export function PlayingCard({
     return (
       <div className={cardClasses} onClick={onClick}>
         {/* Joker card - show joker emoji in center */}
-        <div className="flex items-center justify-center h-full">
+        <div className="flex items-center justify-center h-full min-h-[2rem]">
           <div className="text-center text-purple-600">
-            <div className="text-lg">🃏</div>
-            <div className="text-xs font-bold">JOKER</div>
+            <div className="text-lg leading-none">🃏</div>
+            <div className="text-xs font-bold leading-none">JOKER</div>
           </div>
         </div>
       </div>
@@ -119,9 +119,9 @@ export function PlayingCard({
       </div>
       
       {/* Center content - rank only */}
-      <div className="flex items-center justify-center h-full">
+      <div className="flex items-center justify-center h-full min-h-[2rem]">
         <div className={`text-center ${suitColor}`}>
-          <div className="font-bold text-sm">{card.rank}</div>
+          <div className="font-bold text-sm leading-none">{card.rank}</div>
         </div>
       </div>
       

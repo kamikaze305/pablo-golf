@@ -41,13 +41,15 @@ export function PeekingPhaseDisplay({
                       {player.name}
                     </h3>
                   </div>
-                  {/* Ready Status Indicator */}
-                  {readyPlayers.includes(player.id) && (
-                    <div className="bg-green-500 text-white text-xs px-2 py-1 rounded-full flex items-center">
-                      <span className="mr-1">✓</span>
-                      Ready
-                    </div>
-                  )}
+                  {/* Ready Status Indicator - Reserve space to prevent layout shift */}
+                  <div className="min-w-[60px] h-6 flex items-center justify-end">
+                    {readyPlayers.includes(player.id) && (
+                      <div className="bg-green-500 text-white text-xs px-2 py-1 rounded-full flex items-center">
+                        <span className="mr-1">✓</span>
+                        Ready
+                      </div>
+                    )}
+                  </div>
                 </div>
                 
                 {/* Cards Grid - 2x2 grid for 4 cards */}

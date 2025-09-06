@@ -1,0 +1,6 @@
+[33m9bdfcc6e[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m Fix Render deployment: Add separate client service configuration
+[33m92282358[m Fix audio availability issue: Add music file to git and update .gitignore
+[33m11c32da7[m Fix TypeScript build errors for render.com deployment
+[33m0ad0df9c[m[33m ([m[1;33mtag: [m[1;33mstable-version[m[33m)[m Stable version
+[33mc3acdf55[m Major game update: Add new game components, enhance UI, improve game logic and add special tricks system
+[33mb33f8e8b[m Version 2.0: Major Project Cleanup and UI Improvements

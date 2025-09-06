@@ -4,6 +4,7 @@ interface PlayerDetailsProps {
   roomId: string;
   roomKey?: string;
   currentPlayerName?: string;
+  targetScore?: number;
   onCopyRoomCode: () => void;
   onLeaveRoom: () => void;
   linkCopied: boolean;
@@ -13,6 +14,7 @@ export function PlayerDetails({
   roomId,
   roomKey,
   currentPlayerName,
+  targetScore = 50,
   onCopyRoomCode,
   linkCopied
 }: PlayerDetailsProps) {
@@ -23,6 +25,14 @@ export function PlayerDetails({
           <span className="text-lg font-semibold text-gray-700">
             Room: {roomKey || roomId}
           </span>
+          
+          {/* Cutoff Score Display */}
+          <div className="flex items-center space-x-1 bg-gradient-to-r from-purple-50 to-blue-50 px-2 py-1 rounded-md border border-purple-200">
+            <div className="w-1.5 h-1.5 bg-purple-500 rounded-full"></div>
+            <span className="text-xs font-medium text-purple-700">Cutoff:</span>
+            <span className="text-sm font-bold text-purple-800">{targetScore}</span>
+          </div>
+          
           <div className="flex flex-col items-center">
             <button
               onClick={onCopyRoomCode}

@@ -1,4 +1,4 @@
-import { Trophy } from 'lucide-react';
+import { ThumbsDown } from 'lucide-react';
 import { PlayingCard } from './PlayingCard';
 import { RoundEndDisplay } from './RoundEndDisplay';
 import { HostIcon } from './icons_master';
@@ -32,6 +32,7 @@ interface GameBoardProps {
   pabloCalled?: boolean;
   pabloCallerId?: string;
   isHost?: boolean;
+  targetScore?: number;
   onCardClick: (playerId: string, cardIndex: number) => void;
   onPeekCard: (cardIndex: number) => void;
 }
@@ -61,9 +62,22 @@ export function GameBoard({
   pabloCalled,
   pabloCallerId,
   isHost,
+  targetScore = 50,
   onCardClick,
   onPeekCard
 }: GameBoardProps) {
+  // Helper function to determine icon color based on score relative to cutoff
+  const getScoreIconColor = (playerScore: number) => {
+    const percentage = (playerScore / targetScore) * 100;
+    if (percentage < 50) {
+      return 'text-green-500'; // Green if less than 50% of cutoff
+    } else if (percentage < 75) {
+      return 'text-yellow-500'; // Yellow if 50-75% of cutoff
+    } else {
+      return 'text-red-500'; // Red if greater than 75% of cutoff
+    }
+  };
+
   // If in peeking phase, show integrated game board with peeking functionality
   if (gamePhase === 'peeking') {
     return (
@@ -115,18 +129,17 @@ export function GameBoard({
           {/* Player Cards Grid with Peeking Functionality */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {players.map((player) => {
-              const isCurrentTurn = currentPlayerIndex === players.findIndex(p => p.id === player.id);
               const isCurrentPlayer = currentPlayerId === player.id;
               const playerPeekedCards = peekedCards[player.id] || [];
               const isReady = readyPlayers.includes(player.id);
               const canPeekMore = isCurrentPlayer && playerPeekedCards.length < (gameSettings?.cardsPerPlayer || 4) / 2;
               
               return (
-                <div key={player.id} className={`border rounded-lg p-3 ${isCurrentTurn ? 'border-yellow-400 bg-yellow-50 shadow-lg' : 'bg-blue-50 border-blue-200'} ${isCurrentPlayer ? 'border-blue-400 bg-blue-100 shadow-lg' : ''}`}>
+                <div key={player.id} className={`border rounded-lg p-3 ${isCurrentPlayer ? 'border-yellow-400 bg-yellow-50 shadow-lg' : ''}`}>
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center space-x-2">
                       {player.isHost && <HostIcon />}
-                      <h3 className={`font-semibold text-sm ${isCurrentTurn ? 'text-yellow-800' : 'text-blue-800'} ${isCurrentPlayer ? 'text-blue-900' : ''} ${!player.isConnected ? 'text-gray-500' : ''}`}>
+                      <h3 className={`font-semibold text-sm flex items-center ${isCurrentPlayer ? 'text-yellow-800' : ''} ${!player.isConnected ? 'text-gray-500' : ''}`}>
                         {player.name}
                         {isReady && (
                           <span 
@@ -140,7 +153,7 @@ export function GameBoard({
                       </h3>
                     </div>
                     <div className="flex items-center space-x-1">
-                      <Trophy size={12} className="text-yellow-500" />
+                      <ThumbsDown size={12} className={isCurrentPlayer ? 'text-red-500' : getScoreIconColor(player.totalScore)} />
                       <span className="font-semibold text-sm">{player.totalScore}</span>
                     </div>
                   </div>
@@ -281,7 +294,7 @@ export function GameBoard({
                     </h3>
                   </div>
                   <div className="flex items-center space-x-1">
-                    <Trophy size={12} className="text-yellow-500" />
+                    <ThumbsDown size={12} className={isCurrentTurn ? 'text-red-500' : getScoreIconColor(player.totalScore)} />
                     <span className="font-semibold text-sm">{player.totalScore}</span>
                   </div>
                 </div>

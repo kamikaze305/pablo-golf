@@ -34,36 +34,42 @@ export function RoundEndDisplay({
       {/* Round Results - Compact Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
         {players.map((player) => (
-          <div key={player.id} className="border rounded-lg p-3 bg-gray-50">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-1">
-                <div className="flex items-center space-x-2">
-                  {player.isHost && <HostIcon />}
-                  <h4 className="font-semibold text-sm">
-                    {player.name}
-                  </h4>
-                </div>
-                {pabloCalled && pabloCallerId === player.id && (
-                  <div className="relative group">
-                                         <Megaphone 
-                       size={14} 
-                       className="text-yellow-600 cursor-help" 
-                     />
-                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
-                      Called Pablo
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div className="text-right text-xs">
-                <div className="text-gray-600">Round</div>
-                <div className={`font-bold ${player.roundScore > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                  {player.roundScore > 0 ? '+' : ''}{player.roundScore}
-                </div>
-                <div className="text-gray-600">Total</div>
-                <div className="font-bold text-blue-600">{player.totalScore}</div>
-              </div>
+          <div key={player.id} className="space-y-2">
+            {/* Round Total above the player tile */}
+            <div className="text-center text-xs">
+              <span className="text-gray-600">Round: </span>
+              <span className={`font-bold ${player.roundScore > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                {player.roundScore > 0 ? '+' : ''}{player.roundScore}
+              </span>
             </div>
+            
+            {/* Player tile */}
+            <div className="border rounded-lg p-3 bg-gray-50">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-1">
+                  <div className="flex items-center space-x-2">
+                    {player.isHost && <HostIcon />}
+                    <h4 className="font-semibold text-sm">
+                      {player.name}
+                    </h4>
+                  </div>
+                  {pabloCalled && pabloCallerId === player.id && (
+                    <div className="relative group">
+                                           <Megaphone 
+                         size={14} 
+                         className="text-yellow-600 cursor-help" 
+                       />
+                      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                        Called Pablo
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="text-right text-xs">
+                  <div className="text-gray-600">Total</div>
+                  <div className="font-bold text-blue-600">{player.totalScore}</div>
+                </div>
+              </div>
             
             {/* Show all cards - Compact */}
             <div className="grid grid-cols-2 grid-rows-2 gap-1 max-w-[120px] mx-auto mb-2">
@@ -76,10 +82,11 @@ export function RoundEndDisplay({
               ))}
             </div>
             
-            {/* Card Total - Raw sum of card values only */}
-            <div className="text-center text-xs text-gray-600">
-              <div className="font-medium">
-                Card Total: {player.cards.reduce((sum: number, card: any) => sum + (card ? card.value : 0), 0)}
+              {/* Card Total - Raw sum of card values only */}
+              <div className="text-center text-xs text-gray-600">
+                <div className="font-medium">
+                  Card Total: {player.cards.reduce((sum: number, card: any) => sum + (card ? card.value : 0), 0)}
+                </div>
               </div>
             </div>
           </div>

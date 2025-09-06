@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useGameStore } from '../stores/gameStore';
-import { RoomSettings, Player, DEFAULT_GAME_SETTINGS, GAME_CONFIG } from '@pablo/engine';
+import { RoomSettings, Player, DEFAULT_GAME_SETTINGS } from '@pablo/engine';
 
 function generateRoomKey(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -18,11 +18,11 @@ export function CreateRoomModal() {
   const navigate = useNavigate();
   
   const [playerName, setPlayerName] = useState('');
-  const [targetScore, setTargetScore] = useState(100);
+  const [targetScore, setTargetScore] = useState(50);
   const [settings] = useState<RoomSettings>({
     ...DEFAULT_GAME_SETTINGS,
     roomKey: generateRoomKey(),
-    targetScore: 100
+    targetScore: 50
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -99,16 +99,24 @@ export function CreateRoomModal() {
               <label className="block text-sm text-gray-700 mb-2">
                 Target Score to End Game
               </label>
-              <input
-                type="number"
-                value={targetScore}
-                onChange={(e) => setTargetScore(parseInt(e.target.value) || 100)}
-                className="input-field"
-                min={GAME_CONFIG.MIN_TARGET_SCORE}
-                max={GAME_CONFIG.MAX_TARGET_SCORE}
-              />
+              <div className="grid grid-cols-2 gap-2">
+                {[30, 50, 75, 100].map((score) => (
+                  <button
+                    key={score}
+                    type="button"
+                    onClick={() => setTargetScore(score)}
+                    className={`px-4 py-2 rounded-lg border-2 transition-colors ${
+                      targetScore === score
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                    }`}
+                  >
+                    {score}
+                  </button>
+                ))}
+              </div>
               <p className="text-sm text-gray-500 mt-1">
-                First player to reach this score wins the game
+                Game ends when one of the players reach this score.
               </p>
             </div>
 

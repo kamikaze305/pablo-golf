@@ -57,13 +57,15 @@ export function PeekingPhaseCompact({
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center space-x-2">
                     {player.isHost && <HostIcon />}
-                    <h3 className="font-semibold text-sm">
+                    <h3 className="font-semibold text-sm flex items-center">
                       {readyPlayers.includes(player.id) && (
                         <span className="text-green-500 mr-1" title="Player is Ready - Waiting for others...">✓</span>
                       )}
                       {player.name}
                     </h3>
                   </div>
+                  {/* Reserve space for consistent layout */}
+                  <div className="min-w-[20px] h-4"></div>
                 </div>
                 
                 {/* Cards Grid - Configurable grid layout */}

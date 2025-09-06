@@ -7,6 +7,8 @@ interface GameEndDisplayProps {
   pabloCallerId?: string;
   isHost: boolean;
   onResetGame: () => void;
+  roundNumber: number;
+  cutoffScore: number;
 }
 
 // Helper function to format card display names with proper suit symbols
@@ -30,7 +32,9 @@ export function GameEndDisplay({
   pabloCalled,
   pabloCallerId,
   onResetGame,
-  isHost
+  isHost,
+  roundNumber,
+  cutoffScore
 }: GameEndDisplayProps) {
   // Sort players by total score (lowest first for winner)
   const sortedPlayers = [...players].sort((a, b) => a.totalScore - b.totalScore);
@@ -65,6 +69,40 @@ export function GameEndDisplay({
           <p className="text-lg text-yellow-600">
             Final Score: <span className="font-bold">{winner.totalScore}</span> points
           </p>
+          <p className="text-lg text-yellow-600">
+            Room Cutoff: <span className="font-bold">{cutoffScore}</span> points
+          </p>
+          
+          {/* Round End Statement */}
+          <div className="mt-4 p-4 bg-yellow-100 border border-yellow-300 rounded-lg">
+            <h2 className="text-lg font-bold text-yellow-800 mb-2">
+              🎯 Round {roundNumber} Complete!
+            </h2>
+            {pabloCalled && pabloCallerId && (() => {
+              const pabloCaller = players.find(p => p.id === pabloCallerId);
+              const isWinner = pabloCaller?.id === winner.id;
+              const callerScore = pabloCaller?.totalScore || 0;
+              
+              if (isWinner) {
+                return (
+                  <p className="text-yellow-700">
+                    ✅ Nailed it! <span className="font-bold">{pabloCaller?.name}</span> called Pablo and crushed it. {callerScore} points of pure glory!
+                  </p>
+                );
+              } else {
+                return (
+                  <p className="text-yellow-700">
+                    📢 <span className="font-bold">{pabloCaller?.name}</span> called Pablo but finished with {callerScore} points.
+                  </p>
+                );
+              }
+            })()}
+            {!pabloCalled && (
+              <p className="text-yellow-700">
+                🎲 No one called Pablo this round. The game ended naturally!
+              </p>
+            )}
+          </div>
         </div>
 
         {/* Final Rankings */}
@@ -125,6 +163,13 @@ export function GameEndDisplay({
                       </div>
                     ))}
                 </div>
+                
+                {/* Card Total */}
+                <div className="mt-2 pt-2 border-t border-gray-200">
+                  <div className="font-medium text-center">
+                    Card Total: {player.cards.reduce((sum: number, card: any) => sum + (card ? card.value : 0), 0)}
+                  </div>
+                </div>
               </div>
             </div>
           ))}
@@ -139,14 +184,8 @@ export function GameEndDisplay({
           return (
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
               <h3 className="font-semibold text-yellow-800 mb-2">
-                Pablo called by <span className="font-bold">{pabloCaller?.name}</span>
+                Game Over for all other players. <span className="font-bold">{winner.name}</span> won with {winner.totalScore} points.
               </h3>
-              <p className="text-yellow-700">
-                {isWinner 
-                  ? `🎉 They won the game with the lowest score!` 
-                  : `They finished with ${callerScore} points`
-                }
-              </p>
             </div>
           );
         })()}
