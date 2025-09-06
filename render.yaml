@@ -12,10 +12,19 @@ services:
       - key: PORT
         value: 10000
       - key: ORIGIN
-        value: https://your-client-domain.onrender.com
+        value: https://pablo-golf-client.onrender.com
       - key: MAX_ROOMS
         value: 50
       - key: MAX_PLAYERS_PER_ROOM
         value: 5
       - key: MAX_CONNECTIONS
         value: 300
+
+  - type: static
+    name: pablo-golf-client
+    plan: free
+    buildCommand: cd apps/client && npm install && npm run build
+    staticPublishPath: apps/client/dist
+    envVars:
+      - key: VITE_SOCKET_URL
+        value: https://pablo-golf-server.onrender.com
