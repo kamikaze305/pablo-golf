@@ -52,9 +52,6 @@ const SESSION_KEYS = {
   SESSION_EXPIRY: 'pablo_session_expiry'
 };
 
-// Session timeout constants
-const SESSION_TIMEOUT_MS = 60 * 60 * 1000; // 1 hour
-const HEARTBEAT_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
 // Helper functions for session persistence
 const saveSession = (roomId: string, playerId: string, playerName: string, roomKey: string, sessionToken: string, sessionExpiry: number) => {

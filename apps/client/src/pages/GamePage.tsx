@@ -672,7 +672,6 @@ export function GamePage() {
           }
         }}
         onPeekCard={handlePeekCard}
-        onStartRound={handleStartRound}
       />
 
 
