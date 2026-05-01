@@ -40,8 +40,6 @@ export function CreateRoomModal() {
         targetScore
       };
       
-      console.log('Creating room with settings:', finalSettings);
-      
       const player: Player = {
         id: crypto.randomUUID(),
         name: playerName.trim(),
@@ -52,9 +50,7 @@ export function CreateRoomModal() {
         isHost: true
       };
 
-      console.log('Creating room with player:', player);
       await createRoom(finalSettings, player);
-      console.log('Room created successfully');
       
       // Navigate to the game page
       navigate(`/game/${finalSettings.roomKey}`);

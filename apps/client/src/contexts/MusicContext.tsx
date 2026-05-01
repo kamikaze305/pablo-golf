@@ -23,8 +23,6 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
         // Load music from the main path
         const musicPath = '/music/bg_music.mp3';
         
-        console.log('Attempting to fetch music from:', musicPath);
-        
         const response = await fetch(musicPath);
         
         if (!response.ok) {
@@ -32,7 +30,6 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
         }
         
         const audioBlob = await response.blob();
-        console.log('Successfully fetched music from:', musicPath);
         
         // Create audio element from the blob
         const audioUrl = URL.createObjectURL(audioBlob);
@@ -43,13 +40,8 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
 
         // Wait for audio to be loaded before allowing playback
         audioRef.current.addEventListener('canplaythrough', async () => {
-          setMusicStatus('ready');
-          console.log('Audio loaded successfully from:', musicPath);
-          
-          // Don't auto-play music - start in muted state
           setMusicStatus('paused');
           setIsPlaying(false);
-          console.log('Music loaded and ready, but muted by default');
         });
 
         // Add error handling for audio loading
@@ -176,7 +168,6 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
         await audioRef.current.play();
         setIsPlaying(true);
         setMusicStatus('playing');
-        console.log('Music resumed by ensureMusicPlaying');
       } catch (error) {
         console.warn('Failed to resume music:', error);
       }
@@ -207,15 +198,10 @@ export function useMusic() {
 export function useGameMusic() {
   const { ensureMusicPlaying, musicStatus, isPlaying } = useMusic();
 
-  const ensureMusicDuringAction = useCallback(async (actionName: string) => {
-    console.log(`Ensuring music continues during game action: ${actionName}`);
-    
+  const ensureMusicDuringAction = useCallback(async (_actionName: string) => {
     if (musicStatus === 'ready' && !isPlaying) {
       await ensureMusicPlaying();
     }
-    
-    // Log music status for debugging
-    console.log(`Music status during ${actionName}:`, { musicStatus, isPlaying });
   }, [ensureMusicPlaying, musicStatus, isPlaying]);
 
   return {

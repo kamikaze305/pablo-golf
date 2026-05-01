@@ -77,16 +77,6 @@ export function GamePage() {
 
 
 
-  // Debug logging (only in development)
-  if (import.meta.env.DEV) {
-    console.log('GamePage: Component rendered');
-    console.log('GamePage: Room info:', {
-      roomId,
-      storeRoomId,
-      roomKey: gameState?.settings?.roomKey,
-      gameState: gameState ? 'loaded' : 'not loaded'
-    });
-  }
 
 
 
@@ -94,7 +84,6 @@ export function GamePage() {
   useEffect(() => {
     // Only redirect if we're not in a room, not loading, and not attempting to reconnect
     if (!storeRoomId && !isLoading && !isReconnecting) {
-      console.log('GamePage: No room ID, not loading, and not reconnecting - redirecting to home');
       navigate('/');
     }
   }, [storeRoomId, isLoading, isReconnecting, navigate]);
@@ -103,13 +92,6 @@ export function GamePage() {
 
   // Trick card state handling
   useEffect(() => {
-    console.log('GamePage: Trick card effect triggered');
-    console.log('GamePage: isTrickActive =', isTrickActive);
-    console.log('GamePage: isMyTrick =', isMyTrick);
-    console.log('GamePage: activeTrick =', activeTrick);
-    console.log('GamePage: gamePhase =', gameState?.gamePhase);
-    console.log('GamePage: lastAction =', gameState?.lastAction);
-    
          // Reset trick card states when trick is not active
          if (!isTrickActive || !isMyTrick || !activeTrick) {
            setSwapSourceCardIndex(null);
@@ -131,20 +113,13 @@ export function GamePage() {
       // 3. Not currently loading AND
       // 4. Not already attempting to reconnect
       if (!isConnected && !storeRoomId && !isLoading && !isReconnecting) {
-        console.log('GamePage: Attempting to connect and reconnect...');
         setIsReconnecting(true);
-        
+
         try {
           useGameStore.getState().connect();
-          
-          // Try to auto-reconnect if we have saved session data
+
           const { autoReconnect } = useGameStore.getState();
-          const reconnected = await autoReconnect();
-          if (reconnected) {
-            console.log('GamePage: Auto-reconnected successfully');
-          } else {
-            console.log('GamePage: No saved session or auto-reconnect failed');
-          }
+          await autoReconnect();
         } catch (error) {
           console.error('GamePage: Reconnection attempt failed:', error);
         } finally {
@@ -163,7 +138,6 @@ export function GamePage() {
   // Pablo window timer
   useEffect(() => {
     if (isPabloWindow && currentPlayer?.id && !gameState?.finalRoundStarted) {
-      console.log('GamePage: Pablo window started, setting countdown to 15 seconds');
       setPabloCountdown(15);
       
       const countdownInterval = setInterval(() => {
@@ -177,7 +151,6 @@ export function GamePage() {
       }, 1000);
       
       const timer = setTimeout(() => {
-        console.log('GamePage: Pablo countdown expired, executing pabloWindow action');
         clearInterval(countdownInterval);
         executeAction({ type: 'pabloWindow', playerId: currentPlayer.id });
         setPabloTimer(null);
@@ -187,14 +160,12 @@ export function GamePage() {
       setPabloTimer(timer);
       
       return () => {
-        console.log('GamePage: Pablo window effect cleanup');
         clearTimeout(timer);
         clearInterval(countdownInterval);
         setPabloTimer(null);
         setPabloCountdown(15);
       };
     } else if (pabloTimer) {
-      console.log('GamePage: Clearing Pablo timer - Pablo window ended');
       clearTimeout(pabloTimer);
       setPabloTimer(null);
       setPabloCountdown(15);
@@ -325,7 +296,6 @@ export function GamePage() {
         pabloCalled={gameState.pabloCalled}
         pabloCallerId={gameState.pabloCallerId}
         onResetGame={() => {
-          console.log('GamePage: Resetting game...');
           executeAction({ type: 'resetGame' });
         }}
         isHost={currentPlayer?.isHost || false}
@@ -421,8 +391,7 @@ export function GamePage() {
     }
     
     const inviteLink = `${window.location.origin}/join/${roomCode}`;
-    console.log('GamePage: Copying invite link:', inviteLink);
-    
+
     try {
       await navigator.clipboard.writeText(inviteLink);
       
@@ -463,13 +432,7 @@ export function GamePage() {
   // Leave room function
   const handleLeaveRoom = async () => {
     try {
-      console.log('GamePage: Leaving room...');
-      
-      // Always call leaveRoom to clear local state
       leaveRoom();
-      
-      // Force navigation to home
-      console.log('GamePage: Room left successfully, navigating to home');
       navigate('/');
     } catch (error) {
       console.error('GamePage: Failed to leave room:', error);

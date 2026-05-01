@@ -13,12 +13,9 @@ export function setupSocketHandlers(io: Server, gameManager: GameManager): void 
   const broadcastGameStateToRoom = (roomId: string, excludePlayerId?: string) => {
     const room = gameManager.getRoom(roomId);
     if (room) {
-      console.log(`Server: Broadcasting to room ${roomId}, excluding player ${excludePlayerId}`);
-      console.log(`Server: Room has ${room.sockets.size} sockets`);
       room.sockets.forEach((socket, playerId) => {
         if (playerId !== excludePlayerId) {
           const playerGameState = gameManager.getGameState(roomId, playerId);
-          console.log(`Server: Sending filtered state to player ${playerId}, state has ${playerGameState?.players.length} players`);
           if (playerGameState) {
             socket.emit('state:patch', playerGameState);
           }
@@ -33,13 +30,9 @@ export function setupSocketHandlers(io: Server, gameManager: GameManager): void 
     // Room creation
     socket.on('room:create', async (data: { settings: RoomSettings; player: Player }, callback: (response: any) => void) => {
       try {
-        console.log('Server: Received room:create request:', { settings: data.settings, player: data.player.name });
-        
         const { settings, player } = data;
         const roomId = gameManager.createRoom(settings, player);
-        
-        console.log('Server: Room created with ID:', roomId);
-        
+
         // Generate session token for the player
         const sessionToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
         const sessionExpiry = Date.now() + (60 * 60 * 1000); // 1 hour
@@ -49,9 +42,7 @@ export function setupSocketHandlers(io: Server, gameManager: GameManager): void 
         gameManager.addSocketToRoom(roomId, player.id, socket);
 
         // Send room created confirmation via callback
-        const response = { roomId, roomKey: settings.roomKey, sessionToken, sessionExpiry };
-        console.log('Server: Sending callback response:', response);
-        callback(response);
+        callback({ roomId, roomKey: settings.roomKey, sessionToken, sessionExpiry });
 
         // Send player-specific game state to the host player
         const playerGameState = gameManager.getGameState(roomId, player.id);
@@ -59,7 +50,7 @@ export function setupSocketHandlers(io: Server, gameManager: GameManager): void 
           socket.emit('state:patch', playerGameState);
         }
 
-        console.log(`Room created: ${roomId} by ${player.name}`);
+        console.log(`Room created: ${roomId} by ${player.name} (key: ${settings.roomKey})`);
       } catch (error) {
         console.error('Room creation error:', error);
         callback({ error: error instanceof Error ? error.message : 'Failed to create room' });
@@ -85,13 +76,10 @@ export function setupSocketHandlers(io: Server, gameManager: GameManager): void 
 
         // Send player-specific game state to the joining player
         const playerGameState = gameManager.getGameState(roomId, player.id);
-        console.log(`Server: Sending filtered state to joining player ${player.id}, state has ${playerGameState?.players.length} players`);
         if (playerGameState) {
           socket.emit('state:patch', playerGameState);
         }
 
-        // Broadcast to other players in the room (excluding the joining player)
-        console.log(`Server: Broadcasting updates to other players in room ${roomId}`);
         broadcastGameStateToRoom(roomId, player.id);
 
         console.log(`Player ${player.name} (ID: ${player.id}) joined room ${roomId}`);
@@ -116,13 +104,10 @@ export function setupSocketHandlers(io: Server, gameManager: GameManager): void 
 
         // Send player-specific game state to the reconnecting player
         const playerGameState = gameManager.getGameState(roomId, playerId);
-        console.log(`Server: Sending filtered state to reconnecting player ${playerId}, state has ${playerGameState?.players.length} players`);
         if (playerGameState) {
           socket.emit('state:patch', playerGameState);
         }
 
-        // Broadcast to other players in the room (excluding the reconnecting player)
-        console.log(`Server: Broadcasting updates to other players in room ${roomId}`);
         broadcastGameStateToRoom(roomId, playerId);
 
         console.log(`Player ${playerName} (ID: ${playerId}) reconnected to room ${roomId}`);
@@ -176,7 +161,6 @@ export function setupSocketHandlers(io: Server, gameManager: GameManager): void 
 
     socket.on('turn:draw', (data: { source: 'stock' | 'discard' }) => {
       const { playerId, roomId } = socket.data as SocketData;
-      console.log(`Server: Received draw action from player ${playerId} in room ${roomId}, source: ${data.source}`);
       if (!playerId || !roomId) return;
 
       try {
@@ -186,9 +170,7 @@ export function setupSocketHandlers(io: Server, gameManager: GameManager): void 
           playerId
         };
 
-        console.log(`Server: Executing draw action:`, action);
         const newState = gameManager.executeGameAction(roomId, action);
-        console.log(`Server: Draw action result - lastAction:`, newState?.lastAction);
         if (newState) {
           // Send filtered turn result to the player who drew
           const filteredState = gameManager.getGameState(roomId, playerId);
@@ -241,7 +223,6 @@ export function setupSocketHandlers(io: Server, gameManager: GameManager): void 
       if (!playerId || !roomId) return;
 
       try {
-        console.log(`Server: Received discard action from player ${playerId}`);
         const action: GameAction = {
           type: 'discard',
           playerId
@@ -249,11 +230,6 @@ export function setupSocketHandlers(io: Server, gameManager: GameManager): void 
 
         const newState = gameManager.executeGameAction(roomId, action);
         if (newState) {
-          console.log(`Server: Discard action executed. New state:`, {
-            currentPlayerIndex: newState.currentPlayerIndex,
-            lastAction: newState.lastAction,
-            gamePhase: newState.gamePhase
-          });
           // Send filtered turn result to the player who discarded
           const filteredState = gameManager.getGameState(roomId, playerId);
           socket.emit('turn:result', { action, state: filteredState });
@@ -297,7 +273,6 @@ export function setupSocketHandlers(io: Server, gameManager: GameManager): void 
       if (!playerId || !roomId) return;
 
       try {
-        console.log(`Server: Received pabloWindow action from player ${playerId}`);
         const action: GameAction = {
           type: 'pabloWindow',
           playerId
@@ -305,11 +280,6 @@ export function setupSocketHandlers(io: Server, gameManager: GameManager): void 
 
         const newState = gameManager.executeGameAction(roomId, action);
         if (newState) {
-          console.log(`Server: PabloWindow action executed. New state:`, {
-            currentPlayerIndex: newState.currentPlayerIndex,
-            lastAction: newState.lastAction,
-            gamePhase: newState.gamePhase
-          });
           const filteredState = gameManager.getGameState(roomId, playerId);
           socket.emit('turn:result', { action, state: filteredState });
           broadcastGameStateToRoom(roomId);
@@ -380,13 +350,6 @@ export function setupSocketHandlers(io: Server, gameManager: GameManager): void 
         
         const newState = gameManager.executeGameAction(roomId, action);
         if (newState) {
-          console.log(`Server: Player ${playerId} marked as ready. Ready players: ${newState.readyPlayers?.length || 0}/${newState.players.length}`);
-          
-          // Check if all players are ready
-          if (newState.gamePhase === 'playing') {
-            console.log('Server: All players ready, transitioning to playing phase');
-          }
-          
           broadcastGameStateToRoom(roomId);
         }
       } catch (error) {
@@ -401,7 +364,6 @@ export function setupSocketHandlers(io: Server, gameManager: GameManager): void 
       if (!playerId || !roomId) return;
 
       try {
-        console.log(`Server: Received activateTrick action from player ${playerId} for card ${data.cardRank}`);
         const action: GameAction = {
           type: 'activateTrick',
           playerId,
@@ -410,10 +372,6 @@ export function setupSocketHandlers(io: Server, gameManager: GameManager): void 
 
         const newState = gameManager.executeGameAction(roomId, action);
         if (newState) {
-          console.log(`Server: ActivateTrick action executed. New state:`, {
-            gamePhase: newState.gamePhase,
-            activeTrick: newState.activeTrick
-          });
           const filteredState = gameManager.getGameState(roomId, playerId);
           socket.emit('turn:result', { action, state: filteredState });
           broadcastGameStateToRoom(roomId);
@@ -429,7 +387,6 @@ export function setupSocketHandlers(io: Server, gameManager: GameManager): void 
       if (!playerId || !roomId) return;
 
       try {
-        console.log(`Server: Received executeSwap action from player ${playerId}`);
         const action: GameAction = {
           type: 'executeSwap',
           playerId,
@@ -438,10 +395,6 @@ export function setupSocketHandlers(io: Server, gameManager: GameManager): void 
 
         const newState = gameManager.executeGameAction(roomId, action);
         if (newState) {
-          console.log(`Server: ExecuteSwap action executed. New state:`, {
-            gamePhase: newState.gamePhase,
-            activeTrick: newState.activeTrick
-          });
           const filteredState = gameManager.getGameState(roomId, playerId);
           socket.emit('turn:result', { action, state: filteredState });
           broadcastGameStateToRoom(roomId);
@@ -457,7 +410,6 @@ export function setupSocketHandlers(io: Server, gameManager: GameManager): void 
       if (!playerId || !roomId) return;
 
       try {
-        console.log(`Server: Received executeSpy action from player ${playerId}`);
         const action: GameAction = {
           type: 'executeSpy',
           playerId,
@@ -466,10 +418,6 @@ export function setupSocketHandlers(io: Server, gameManager: GameManager): void 
 
         const newState = gameManager.executeGameAction(roomId, action);
         if (newState) {
-          console.log(`Server: ExecuteSpy action executed. New state:`, {
-            gamePhase: newState.gamePhase,
-            activeTrick: newState.activeTrick
-          });
           const filteredState = gameManager.getGameState(roomId, playerId);
           socket.emit('turn:result', { action, state: filteredState });
           broadcastGameStateToRoom(roomId);
@@ -487,7 +435,6 @@ export function setupSocketHandlers(io: Server, gameManager: GameManager): void 
       if (!playerId || !roomId) return;
 
       try {
-        console.log(`Server: Received skipTrick action from player ${playerId}`);
         const action: GameAction = {
           type: 'skipTrick',
           playerId
@@ -495,10 +442,6 @@ export function setupSocketHandlers(io: Server, gameManager: GameManager): void 
 
         const newState = gameManager.executeGameAction(roomId, action);
         if (newState) {
-          console.log(`Server: SkipTrick action executed. New state:`, {
-            gamePhase: newState.gamePhase,
-            activeTrick: newState.activeTrick
-          });
           const filteredState = gameManager.getGameState(roomId, playerId);
           socket.emit('turn:result', { action, state: filteredState });
           broadcastGameStateToRoom(roomId);
@@ -524,14 +467,8 @@ export function setupSocketHandlers(io: Server, gameManager: GameManager): void 
           return;
         }
 
-        console.log(`Server: Received resetGame action from host ${playerId} in room ${roomId}`);
         const newState = gameManager.executeGameAction(roomId, { type: 'resetGame' });
         if (newState) {
-          console.log(`Server: Game reset successfully. New state:`, {
-            gamePhase: newState.gamePhase,
-            roundNumber: newState.roundNumber,
-            playersCount: newState.players.length
-          });
           io.to(roomId).emit('game:reset', { state: newState });
           broadcastGameStateToRoom(roomId);
         }

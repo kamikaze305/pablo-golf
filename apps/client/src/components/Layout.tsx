@@ -18,8 +18,6 @@ export function Layout({ children }: LayoutProps) {
   const isInGame = location.pathname.startsWith('/game');
 
   const handleLeaveRoom = () => {
-    console.log('Layout: Leaving room...');
-    // Always call leaveRoom to clear local state
     leaveRoom();
     // Force navigation to home
     navigate('/');

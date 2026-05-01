@@ -119,12 +119,10 @@ export const useGameStore = create<GameStore>()(
 
       socket.on('connect', () => {
         set({ isConnected: true, error: null });
-        console.log('Connected to server');
       });
 
       socket.on('disconnect', () => {
         set({ isConnected: false });
-        console.log('Disconnected from server');
       });
 
       socket.on('error', (data: { message: string }) => {
@@ -133,55 +131,40 @@ export const useGameStore = create<GameStore>()(
       });
 
       socket.on('state:patch', (gameState: GameState) => {
-        console.log('GameStore: Received state:patch event');
-        console.log('GameStore: Current playerId in store:', get().playerId);
-        console.log('GameStore: Players in received state:', gameState.players.map((p: Player) => ({ id: p.id, name: p.name, isHost: p.isHost })));
-        
         set({ gameState });
-        
-        // Update current player if we have a playerId
+
         const { playerId } = get();
         if (playerId) {
           const currentPlayer = gameState.players.find((p: Player) => p.id === playerId);
-          console.log('GameStore: Found currentPlayer:', currentPlayer);
           set({ currentPlayer: currentPlayer || null });
-        } else {
-          console.log('GameStore: No playerId in store, cannot set currentPlayer');
         }
       });
 
       socket.on('round:started', (gameState: GameState) => {
         set({ gameState });
-        console.log('Round started');
       });
 
       socket.on('turn:you', (_data: { playerId: string }) => {
-        console.log('Your turn!');
         // Could add a notification here
       });
 
       socket.on('turn:result', (data: { action: GameAction; state: GameState }) => {
         set({ gameState: data.state });
-        console.log('Turn result:', data.action);
       });
 
       socket.on('round:scored', (data: { state: GameState; result: any }) => {
         set({ gameState: data.state });
-        console.log('Round scored:', data.result);
       });
 
       socket.on('game:reset', (data: { state: GameState }) => {
         set({ gameState: data.state });
-        console.log('Game reset successfully:', data.state);
       });
 
-      socket.on('pablo:called', (data: { callerId: string }) => {
-        console.log('Pablo called by:', data.callerId);
+      socket.on('pablo:called', (_data: { callerId: string }) => {
         // Could add a notification here
       });
 
-      socket.on('chat:message', (message: any) => {
-        console.log('Chat message:', message);
+      socket.on('chat:message', (_message: any) => {
         // Could add chat state management here
       });
 
@@ -206,18 +189,14 @@ export const useGameStore = create<GameStore>()(
     autoReconnect: async () => {
       const savedSession = loadSession();
       if (!savedSession) {
-        console.log('GameStore: No saved session found');
         return false;
       }
 
       // Don't attempt to reconnect if we're already in a room
       const currentState = get();
       if (currentState.roomId || currentState.gameState) {
-        console.log('GameStore: Already in a room, skipping auto-reconnect');
-        return true; // Consider this a successful "reconnect" since we're already connected
+        return true;
       }
-
-      console.log('GameStore: Attempting to auto-reconnect with saved session:', savedSession);
       
       try {
         // First connect to socket
@@ -240,12 +219,10 @@ export const useGameStore = create<GameStore>()(
             playerName: savedSession.playerName 
           }, (response: any) => {
             if (response.error) {
-              console.error('GameStore: Reconnection failed:', response.error);
               clearSession();
               resolve(false);
             } else {
-              console.log('GameStore: Reconnection successful, setting roomId to:', response.roomId);
-              set({ 
+              set({
                 roomId: response.roomId, 
                 playerId: savedSession.playerId,
                 isLoading: false
@@ -266,27 +243,20 @@ export const useGameStore = create<GameStore>()(
       const { socket } = get();
       if (!socket) throw new Error('Not connected');
 
-      console.log('GameStore: Starting room creation with player:', { id: player.id, name: player.name, isHost: player.isHost });
       set({ isLoading: true, error: null });
 
       return new Promise((resolve, reject) => {
-        console.log('GameStore: Emitting room:create event...');
-        
-        // Add timeout to prevent hanging
         const timeout = setTimeout(() => {
-          console.error('GameStore: Room creation timeout');
           set({ error: 'Room creation timed out', isLoading: false });
           reject(new Error('Room creation timeout'));
-        }, 10000); // 10 second timeout
-        
+        }, 10000);
+
         socket.emit('room:create', { settings, player }, (response: any) => {
           clearTimeout(timeout);
-          console.log('GameStore: Received response:', response);
           if (response.error) {
             set({ error: response.error, isLoading: false });
             reject(new Error(response.error));
           } else {
-            console.log('GameStore: Room created successfully, setting playerId to:', player.id);
             // Save session data
             saveSession(response.roomId, player.id, player.name, response.roomKey, response.sessionToken, response.sessionExpiry);
             set({ 
@@ -305,7 +275,6 @@ export const useGameStore = create<GameStore>()(
       const { socket } = get();
       if (!socket) throw new Error('Not connected');
 
-      console.log('GameStore: Joining room with player:', { id: player.id, name: player.name, isHost: player.isHost });
       set({ isLoading: true, error: null });
 
       return new Promise((resolve, reject) => {
@@ -314,7 +283,6 @@ export const useGameStore = create<GameStore>()(
             set({ error: response.error, isLoading: false });
             reject(new Error(response.error));
           } else {
-            console.log('GameStore: Room joined successfully, setting playerId to:', player.id);
             // Save session data
             saveSession(response.roomId, player.id, player.name, roomKey, response.sessionToken, response.sessionExpiry);
             set({ 
@@ -344,16 +312,12 @@ export const useGameStore = create<GameStore>()(
       // If socket exists, emit leave event
       if (socket) {
         socket.emit('room:leave');
-      } else {
-        console.log('GameStore: No socket available, but cleared local state');
       }
     },
 
     executeAction: (action: GameAction) => {
       const { socket } = get();
       if (!socket) return;
-
-      console.log('GameStore: executeAction called with:', action);
 
       switch (action.type) {
         case 'startRound':

@@ -30,16 +30,11 @@ export class GameManager {
       throw new Error('Maximum number of rooms reached');
     }
 
-    console.log(`CreateRoom Debug: Creating room with settings:`, settings);
-    console.log(`CreateRoom Debug: Max players from settings: ${settings.maxPlayers}`);
-
     const roomId = uuidv4();
     const roomSettings: RoomSettings = {
       ...settings,
       roomKey: settings.roomKey || this.generateRoomKey()
     };
-
-    console.log(`CreateRoom Debug: Final room settings:`, roomSettings);
 
     const engine = new PabloGameEngine(roomId, roomSettings, [hostPlayer]);
     const players = new Map<string, Player>();
@@ -70,15 +65,11 @@ export class GameManager {
       throw new Error('Room not found');
     }
 
-    console.log(`JoinRoom Debug: Room ${roomKey} - Current players: ${room.players.size}, Max players: ${room.settings.maxPlayers}`);
-    console.log(`JoinRoom Debug: Room settings:`, room.settings);
-
     if (room.settings.joinPassword && room.settings.joinPassword !== password) {
       throw new Error('Invalid password');
     }
 
     if (room.players.size >= room.settings.maxPlayers) {
-      console.log(`JoinRoom Debug: Room is full! Players: ${room.players.size}, Max: ${room.settings.maxPlayers}`);
       throw new Error('Room is full');
     }
 
@@ -95,8 +86,6 @@ export class GameManager {
     room.engine.addPlayer(joiningPlayer);
     
     room.lastActivity = new Date();
-
-    console.log(`JoinRoom Debug: Player ${player.name} joined successfully. New player count: ${room.players.size}`);
 
     // Player join logging moved to socketHandlers.ts
     return room.id;
@@ -123,8 +112,6 @@ export class GameManager {
     this.playerToRoom.set(playerId, room.id);
     
     room.lastActivity = new Date();
-
-    console.log(`ReconnectPlayer Debug: Player ${playerName} (${playerId}) reconnected to room ${room.id}`);
     return room.id;
   }
 
